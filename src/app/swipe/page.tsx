@@ -34,7 +34,7 @@ export default function SwipePage() {
         <section className="mx-auto max-w-3xl px-4 pt-12">
           <div className="card">
             <h1 className="text-2xl font-bold">No matches yet</h1>
-            <p className="text-white/80 mt-2">Go to the Find page and submit your preferences.</p>
+            <p className="text-slate-600 mt-2">Go to the Find page and submit your preferences.</p>
             <div className="mt-4"><Link href="/find" className="btn btn-primary">Find cars</Link></div>
           </div>
         </section>
@@ -47,9 +47,9 @@ export default function SwipePage() {
       <NavBar />
       <section className="mx-auto max-w-3xl px-4 pt-8 pb-20">
         {warning && (
-          <div className="card border-yellow-400/30 bg-yellow-500/10">
-            <div className="font-semibold text-yellow-300">Heads up</div>
-            <div className="text-white/80 text-sm">{warning}</div>
+          <div className="card border-amber-200 bg-amber-50">
+            <div className="font-semibold text-amber-700">Heads up</div>
+            <div className="text-slate-600 text-sm">{warning}</div>
           </div>
         )}
 
@@ -60,12 +60,12 @@ export default function SwipePage() {
           <button className="btn btn-outline" onClick={() => onSwipe('left')}>Skip</button>
           <button className="btn btn-primary" onClick={() => onSwipe('right')}>Like</button>
         </div>
-        <p className="text-center text-white/70 mt-3 text-sm">{remaining} remaining</p>
+        <p className="text-center text-slate-500 mt-3 text-sm">{remaining} remaining</p>
 
         {index >= cars.length && (
           <div className="card mt-8 text-center">
             <h2 className="text-xl font-semibold">All done!</h2>
-            <p className="text-white/80 mt-1">View your liked cars or try again.</p>
+            <p className="text-slate-600 mt-1">View your liked cars or try again.</p>
             <div className="mt-4 flex gap-3 justify-center">
               <Link href="/liked" className="btn btn-primary">View Liked</Link>
               <Link href="/find" className="btn btn-outline">Run again</Link>
@@ -82,7 +82,7 @@ function Deck({ car, onSwipe }: { car?: Car; onSwipe: (dir: 'left'|'right') => v
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
   const opacity = useTransform(x, [-200, -80, 0, 80, 200], [0.2, 0.7, 1, 0.7, 0.2]);
 
-  if (!car) return <div className="text-white/60">No more cards</div>;
+  if (!car) return <div className="text-slate-500">No more cards</div>;
 
   return (
     <AnimatePresence mode="popLayout">
@@ -104,8 +104,8 @@ function Deck({ car, onSwipe }: { car?: Car; onSwipe: (dir: 'left'|'right') => v
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <CarCard car={car} />
-        <div className="absolute -top-2 -left-2 text-xs text-white/60">Drag → Like</div>
-        <div className="absolute -top-2 -right-2 text-xs text-white/60">Drag ← Skip</div>
+        <div className="absolute -top-2 -left-2 text-xs text-slate-500">Drag → Like</div>
+        <div className="absolute -top-2 -right-2 text-xs text-slate-500">Drag ← Skip</div>
       </motion.div>
     </AnimatePresence>
   );

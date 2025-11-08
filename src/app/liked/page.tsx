@@ -22,7 +22,7 @@ export default function LikedPage() {
           <button className="btn btn-outline" onClick={() => { clearLikes(); location.reload(); }}>Clear</button>
         </div>
         {cars.length === 0 ? (
-          <p className="text-white/70 mt-6">Nothing here yet. Go like a few!</p>
+          <p className="text-slate-500 mt-6">Nothing here yet. Go like a few!</p>
         ) : (
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {cars.map(c => (
@@ -30,11 +30,11 @@ export default function LikedPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="font-semibold">{c.Year} {c.Model}</div>
-                    <div className="text-white/70 text-sm">{c.Location} • {c.Type}</div>
+                    <div className="text-slate-500 text-sm">{c.Location} • {c.Type}</div>
                   </div>
-                  <div className="font-bold text-fuchsia-300">${c.Price.toLocaleString()}</div>
+                  <div className="font-bold text-red-600">${c.Price.toLocaleString()}</div>
                 </div>
-                <div className="mt-3 text-white/80 text-sm">
+                <div className="mt-3 text-slate-600 text-sm">
                   {c.Used ? 'Used' : 'New'} • {(c["Fuel Type"] || c.FuelType)} • {c.Condition}
                 </div>
               </div>

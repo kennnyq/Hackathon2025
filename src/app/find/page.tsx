@@ -88,10 +88,10 @@ export default function FindPage() {
           </div>
 
           <details className="mt-2">
-            <summary className="cursor-pointer text-white/70">Optional: Gemini API key</summary>
+            <summary className="cursor-pointer text-slate-600">Optional: Gemini API key</summary>
             <div className="mt-2">
               <input className="input" id="apiKey" name="apiKey" placeholder="Paste key or set GEMINI_API_KEY in .env.local" />
-              <p className="text-xs text-white/60 mt-1">Key is used only server‑side in this request, never stored.</p>
+              <p className="text-xs text-slate-500 mt-1">Key is used only server-side in this request, never stored.</p>
             </div>
           </details>
 
@@ -99,7 +99,7 @@ export default function FindPage() {
             <button disabled={loading} className="btn btn-primary" type="submit">
               {loading ? 'Analyzing…' : 'Find Matches'}
             </button>
-            {error && <span className="text-sm text-red-300">{error}</span>}
+            {error && <span className="text-sm text-red-600">{error}</span>}
           </div>
         </form>
       </section>

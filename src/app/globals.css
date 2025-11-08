@@ -2,28 +2,28 @@
 
 /* Design tokens */
 :root {
-  --brand: 245 85% 55%; /* bright magenta/pink */
-  --accent: 49 100% 50%; /* warm yellow */
+  --brand: 355 80% 52%; /* vivid red */
+  --accent: 12 90% 60%; /* warm coral */
 }
 
-/* Nice card glass effect */
+/* Clean, elevated cards */
 .card {
-  @apply rounded-2xl p-6 shadow-xl backdrop-blur bg-white/5 border border-white/10;
+  @apply rounded-2xl p-6 bg-white border border-red-100/70 shadow-[0_15px_45px_rgba(15,23,42,0.08)];
 }
 
-/* Buttons: share base + add variants in HTML: class="btn btn-primary" */
+/* Buttons */
 .btn {
-  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition active:scale-95;
+  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition-all duration-150 active:scale-95;
 }
 .btn-primary {
-  @apply bg-fuchsia-600 hover:bg-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500;
+  @apply bg-red-600 text-white shadow-lg shadow-red-200/80 hover:bg-red-500 focus:ring-4 focus:ring-red-200;
 }
 .btn-outline {
-  @apply border border-white/20 hover:bg-white/10;
+  @apply border border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300;
 }
 
 /* Inputs */
 .input, .select, .textarea {
-  @apply w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-fuchsia-500;
+  @apply w-full rounded-xl bg-white border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-red-200 focus:border-red-500 text-slate-900 placeholder:text-slate-400;
 }
-.label { @apply text-sm text-white/70 mb-1; }
+.label { @apply text-sm font-semibold text-slate-600 mb-1; }
