@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Design tokens */
+:root {
+  --brand: 245 85% 55%; /* bright magenta/pink */
+  --accent: 49 100% 50%; /* warm yellow */
+}
+
+/* Nice card glass effect */
+.card {
+  @apply rounded-2xl p-6 shadow-xl backdrop-blur bg-white/5 border border-white/10;
+}
+
+/* Buttons: share base + add variants in HTML: class="btn btn-primary" */
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition active:scale-95;
+}
+.btn-primary {
+  @apply bg-fuchsia-600 hover:bg-fuchsia-500 focus:ring-2 focus:ring-fuchsia-500;
+}
+.btn-outline {
+  @apply border border-white/20 hover:bg-white/10;
+}
+
+/* Inputs */
+.input, .select, .textarea {
+  @apply w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-fuchsia-500;
+}
+.label { @apply text-sm text-white/70 mb-1; }
