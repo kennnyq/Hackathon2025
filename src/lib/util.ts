@@ -16,16 +16,20 @@ export function filterCars(cars: Car[], prefs: Preferences): Car[] {
     const usedOk = prefs.used === 'Any' || (prefs.used === 'Used' ? c.Used : !c.Used);
     const fuelOk = prefs.fuelType === 'Any' || fuel.startsWith(prefs.fuelType.toLowerCase());
     const priceOk = !prefs.budget || c.Price <= prefs.budget * 1.1; // small cushion
-    const condOk = prefs.condition === 'Any' || c.Condition.toLowerCase().startsWith(prefs.condition.toLowerCase());
+    const mileageOk = !prefs.maxMileage || typeof c.Mileage !== 'number' || c.Mileage <= prefs.maxMileage;
     const locOk = !prefs.location || c.Location.toLowerCase().includes(prefs.location.toLowerCase());
-    return usedOk && fuelOk && priceOk && condOk && locOk;
+    return usedOk && fuelOk && priceOk && mileageOk && locOk;
   });
 }
 
 export function scoreCar(c: Car, prefs: Preferences): number {
   const pricePenalty = Math.max(0, c.Price - prefs.budget);
+  const preferredMileage = typeof prefs.maxMileage === 'number' && prefs.maxMileage > 0 ? prefs.maxMileage : null;
+  const mileagePenalty = preferredMileage && typeof c.Mileage === 'number'
+    ? Math.max(0, c.Mileage - preferredMileage) * 0.05
+    : 0;
   const ageBonus = Math.max(0, c.Year - 2015) * 200; // newer is better
-  return -pricePenalty + ageBonus;
+  return -pricePenalty - mileagePenalty + ageBonus;
 }
 
 export function pickTopN(cars: Car[], prefs: Preferences, n = 10): Car[] {

@@ -18,6 +18,8 @@ export type Car = {
   InteriorColor?: string;
   Dealer?: string;
   DistanceMiles?: number;
+  FitDescription?: string;
+  ImageUrl?: string;
 };
 
 export type Preferences = {
@@ -25,7 +27,7 @@ export type Preferences = {
   used: 'New' | 'Used' | 'Any';
   location: string;
   fuelType: 'Hybrid' | 'EV' | 'Fuel' | 'Other' | 'Any';
-  condition: 'Excellent' | 'Good' | 'Fair' | 'Any' | string;
+  maxMileage?: number | null;
   notes: string;
 };
 
