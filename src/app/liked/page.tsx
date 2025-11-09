@@ -14,6 +14,7 @@ export default function LikedPage() {
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>('az');
   const [priceRange, setPriceRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,7 +216,12 @@ export default function LikedPage() {
                 ) : (
                   <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                     {sortedCars.map(car => (
-                      <VehicleCard key={car.Id} car={car} />
+                      <VehicleCard
+                        key={car.Id}
+                        car={car}
+                        expanded={expandedId === car.Id}
+                        onToggle={() => setExpandedId(prev => (prev === car.Id ? null : car.Id))}
+                      />
                     ))}
                   </div>
                 )}
@@ -297,7 +303,7 @@ function PriceInput({ label, value, onChange, disabled }: { label: string; value
   );
 }
 
-function VehicleCard({ car }: { car: Car }) {
+function VehicleCard({ car, expanded, onToggle }: { car: Car; expanded: boolean; onToggle: () => void }) {
   const currency = formatCurrency(car.Price);
   const mpg = car.MPG || '—';
   const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : 'Seating TBD';
@@ -305,8 +311,22 @@ function VehicleCard({ car }: { car: Car }) {
   const category = getCategory(car);
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
+  const highlights = [
+    { label: 'Mileage', value: typeof car.Mileage === 'number' ? `${car.Mileage.toLocaleString()} mi` : null },
+    { label: 'Drivetrain', value: car.Drivetrain },
+    { label: 'Fuel', value: fuel },
+    { label: 'MPG', value: car.MPG },
+    { label: 'Seating', value: seating },
+    { label: 'Exterior', value: car.ExteriorColor },
+    { label: 'Interior', value: car.InteriorColor },
+  ].filter(item => item.value);
   return (
-    <div className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)]">
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)]"
+    >
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
         <span>{category}</span>
         <span>{badge}</span>
@@ -327,11 +347,28 @@ function VehicleCard({ car }: { car: Car }) {
           <p className="mt-1">{seating}</p>
         </div>
       </div>
-      <div className="mt-5 flex gap-5 text-sm font-semibold">
-        <button className="text-red-600 hover:underline" type="button">Explore</button>
-        <button className="text-red-600 hover:underline" type="button">Build</button>
-      </div>
-    </div>
+      {expanded && (
+        <div className="mt-5 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-slate-700">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
+            <p className="mt-1">{car.FitDescription || 'Reasoning unavailable. Check back soon!'}</p>
+          </div>
+          {highlights.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Key highlights</p>
+              <ul className="mt-2 space-y-1">
+                {highlights.map(item => (
+                  <li key={item.label} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400" aria-hidden="true" />
+                    <span><span className="font-semibold">{item.label}:</span> {item.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </button>
   );
 }
 

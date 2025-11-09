@@ -93,7 +93,7 @@ export default function SwipePage() {
               />
             </div>
           </div>
-          <div className="mt-6 flex items-center justify-center gap-3">
+          <div className="mt-10 flex items-center justify-center gap-4">
             <button className="btn btn-outline" onClick={() => onSwipe('left')}>Skip</button>
             <button className="btn btn-primary" onClick={() => onSwipe('right')}>Like</button>
           </div>
@@ -132,7 +132,7 @@ function Deck({
   if (!stack.length) return <div className="text-slate-500">No more cards</div>;
 
   return (
-    <div className="relative h-[620px] w-[340px] sm:w-[360px]">
+    <div className="relative h-[580px] w-[340px] sm:w-[360px]">
       <AnimatePresence initial={false} onExitComplete={resetSwipeMeta}>
         {stack.map((car, stackIndex) => {
           const isTop = stackIndex === 0;
