@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { Car, UserFilter, UserProfile, RecommendationResult, StringOrStringArray } from '@/lib/types';
 
-const MAX_LIMIT = 20;
+const MAX_LIMIT = 40;
 const DEFAULT_LIMIT = 10;
 const MIN_COLOR_SCORE = 0.35;
 const MIN_BUDGET_TOLERANCE = 2500;

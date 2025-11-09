@@ -12,14 +12,17 @@ import { createPortal } from 'react-dom';
 
 type SwipeMeta = { id: Car['Id'] | null; dir: 'left' | 'right' };
 const STACK_LIMIT = 3;
-const PRELOAD_THRESHOLD = 5;
+const INITIAL_BATCH_SIZE = 10;
+const BATCH_INCREMENT = 10;
 const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
 
 export default function SwipePage() {
   useRequireAuth();
   const sessionId = useSessionId();
   const [cars, setCars] = useState<Car[]>([]);
+  const [visibleCount, setVisibleCount] = useState(0);
   const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
   const [warningToast, setWarningToast] = useState<string | null>(null);
   const [lastSwipe, setLastSwipe] = useState<SwipeMeta | null>(null);
@@ -28,11 +31,15 @@ export default function SwipePage() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<number>>(new Set());
-  const lastFetchIndexRef = useRef<number | null>(null);
+  const pendingUnlockRef = useRef(false);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +47,10 @@ export default function SwipePage() {
       if (cancelled) return;
       const storedCars = loadResults();
       setCars(storedCars);
+      const unlocked = storedCars.length ? Math.min(INITIAL_BATCH_SIZE, storedCars.length) : 0;
+      setVisibleCount(unlocked);
+      setIndex(0);
+      pendingUnlockRef.current = false;
       seenIdsRef.current = new Set(storedCars.map(car => car.Id));
       setUserFilter(loadUserFilter());
       const meta = loadResultsMeta();
@@ -67,11 +78,14 @@ export default function SwipePage() {
     }).catch(() => undefined);
   }, [sessionId]);
 
-  const current = cars[index];
-  const remaining = Math.max(cars.length - index, 0);
-  const isComplete = index >= cars.length;
+  const unlockedCount = Math.min(visibleCount, cars.length);
+  const unlockedCars = cars.slice(0, unlockedCount);
+  const current = unlockedCars[index];
+  const remaining = Math.max(unlockedCars.length - index, 0);
+  const isComplete = unlockedCars.length > 0 ? index >= unlockedCars.length : !cars.length;
+  const hasPreloadedBatch = cars.length > unlockedCount;
 
-  const fetchMore = useCallback(async (limit = 10) => {
+  const fetchMore = useCallback(async (limit = BATCH_INCREMENT) => {
     if (!userFilter || !sessionId) return;
     setIsFetchingMore(true);
     setFetchError(null);
@@ -99,12 +113,22 @@ export default function SwipePage() {
         setCars(prev => {
           const merged = [...prev, ...additions];
           saveResults(merged, null);
+          if (!prev.length) {
+            setVisibleCount(Math.min(INITIAL_BATCH_SIZE, merged.length));
+          } else if (pendingUnlockRef.current) {
+            const target = Math.min(merged.length, indexRef.current + BATCH_INCREMENT);
+            setVisibleCount(count => Math.max(count, target));
+            pendingUnlockRef.current = false;
+          }
           return merged;
         });
+      } else if (pendingUnlockRef.current) {
+        pendingUnlockRef.current = false;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to refresh matches';
       setFetchError(message);
+      pendingUnlockRef.current = false;
     } finally {
       setIsFetchingMore(false);
     }
@@ -122,6 +146,8 @@ export default function SwipePage() {
   const undoLast = useCallback(() => {
     if (index <= 0) return;
     const targetIndex = index - 1;
+    const limit = Math.min(visibleCount, cars.length);
+    if (targetIndex >= limit) return;
     const prevCar = cars[targetIndex];
     if (lastSwipe?.dir === 'right' && prevCar && lastSwipe.id === prevCar.Id) {
       removeLike(prevCar.Id);
@@ -129,16 +155,17 @@ export default function SwipePage() {
     setIndex(targetIndex);
     setSwipeMeta({ id: null, dir: 'right' });
     setLastSwipe(null);
-  }, [cars, index, lastSwipe]);
+  }, [cars, index, lastSwipe, visibleCount]);
 
   const skipAll = useCallback(() => {
-    if (index >= cars.length) return;
-    const skipped = cars.slice(index);
+    const limit = Math.min(visibleCount, cars.length);
+    if (index >= limit) return;
+    const skipped = cars.slice(index, limit);
     skipped.forEach(car => sendFeedback(car.Id, 'reject'));
-    setIndex(cars.length);
+    setIndex(limit);
     setSwipeMeta({ id: null, dir: 'right' });
     setLastSwipe(null);
-  }, [cars, index, sendFeedback]);
+  }, [cars, index, sendFeedback, visibleCount]);
 
   useEffect(() => {
     if (cars.length || !userFilter || isFetchingMore) return;
@@ -146,31 +173,24 @@ export default function SwipePage() {
   }, [cars.length, userFilter, isFetchingMore, fetchMore]);
 
   useEffect(() => {
-    if (!userFilter || isFetchingMore) return;
-    if (!cars.length) return;
-    const remaining = cars.length - index;
-    if (remaining > 0 && remaining <= PRELOAD_THRESHOLD) {
-      if (lastFetchIndexRef.current === index) return;
-      lastFetchIndexRef.current = index;
-      fetchMore();
-    }
-  }, [cars.length, index, userFilter, isFetchingMore, fetchMore]);
-
-  useEffect(() => {
     if (!swipeMeta.id) return;
     let cancelled = false;
     const frame = requestAnimationFrame(() => {
       if (cancelled) return;
-      setIndex(i => Math.min(i + 1, cars.length));
+      setIndex(i => Math.min(i + 1, unlockedCount));
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [swipeMeta.id, cars.length]);
+  }, [swipeMeta.id, unlockedCount]);
 
   const handleKeepGoing = () => {
-    lastFetchIndexRef.current = index;
+    if (hasPreloadedBatch) {
+      setVisibleCount(prev => Math.min(prev + BATCH_INCREMENT, cars.length));
+      return;
+    }
+    pendingUnlockRef.current = true;
     void fetchMore();
   };
 
@@ -230,7 +250,7 @@ export default function SwipePage() {
         <section className="mx-auto max-w-3xl px-4 pt-8 pb-20">
           <div className="mt-6 flex justify-center">
             <Deck
-              cars={cars}
+              cars={unlockedCars}
               index={index}
               onSwipe={onSwipe}
               swipeMeta={swipeMeta}
@@ -334,7 +354,7 @@ export default function SwipePage() {
                     type="button"
                     className="btn btn-outline"
                     onClick={handleKeepGoing}
-                    disabled={isFetchingMore || !userFilter || !sessionId}
+                    disabled={isFetchingMore || (!hasPreloadedBatch && (!userFilter || !sessionId))}
                   >
                     Keep going
                   </button>

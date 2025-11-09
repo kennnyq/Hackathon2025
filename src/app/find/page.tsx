@@ -3,11 +3,11 @@ import NavBar from '@/components/NavBar';
 import { useLoadingOverlay } from '@/components/LoadingOverlayProvider';
 import { useCallback, useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Preferences, RecommendationResponse, UserFilter, Car } from '@/lib/types';
+import { Preferences, AnalyzeResponse, UserFilter, FuelPreference, BodyStylePreference } from '@/lib/types';
 import { saveResults, saveUserFilter } from '@/lib/likes';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useSessionId } from '@/hooks/useSessionId';
+import { deriveNoteConstraints } from '@/lib/util';
 
 const LOADING_STEPS = [
   'Locking in your price window + condition…',
@@ -25,6 +25,7 @@ const BODY_TYPE_OPTIONS = ['SUV', 'Sedan', 'Truck', 'Minivan', 'Hatchback', 'Wag
 const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
 const DEFAULT_ZIP = '75080';
+const INITIAL_RECOMMENDATION_LIMIT = 30;
 type SectionKey = 'price' | 'body' | 'efficiency';
 
 const FORM_VARIANTS = {
@@ -69,7 +70,6 @@ const FIELD_VARIANTS = {
 export default function FindPage() {
   const router = useRouter();
   useRequireAuth();
-  const sessionId = useSessionId();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -170,28 +170,18 @@ export default function FindPage() {
     let shouldResetLoading = true;
     try {
       const userFilter = preferencesToUserFilter(prefs);
-      const payload = {
-        sessionId: sessionId || `session-${Date.now()}`,
-        userFilter,
-        limit: 10,
-      };
-      const res = await fetch('/api/recommendations', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...prefs, limit: INITIAL_RECOMMENDATION_LIMIT }),
       });
-      if (!res.ok) throw new Error('Failed to fetch recommendations');
-      const data: RecommendationResponse = await res.json();
-      if (!Array.isArray(data.results)) throw new Error('Recommendation response malformed');
-      const normalizedCars: Car[] = data.results.map(result => {
-        const { generated_description, score, ...rest } = result;
-        return {
-          ...rest,
-          FitDescription: generated_description,
-          Score: score,
-        };
+      if (!res.ok) throw new Error('Failed to analyze preferences');
+      const data: AnalyzeResponse = await res.json();
+      if (!Array.isArray(data.cars)) throw new Error('Analyze response malformed');
+      saveResults(data.cars, {
+        warning: data.warning,
+        reasoning: data.reasoning,
       });
-      saveResults(normalizedCars, null);
       saveUserFilter(userFilter);
       await Promise.all([
         sequencePromise,
@@ -537,6 +527,25 @@ function parseZip(value: FormDataEntryValue | null) {
 }
 
 function preferencesToUserFilter(prefs: Preferences): UserFilter {
+  const noteConstraints = deriveNoteConstraints(prefs.notes);
+  const noteFuel = mapPreferredFuelToFilter(noteConstraints.preferredFuel);
+  const fuelTypes = dedupeStrings([
+    ...prefs.fuelTypes,
+    ...(noteFuel ? [noteFuel] : []),
+  ]);
+  const noteCategories = (noteConstraints.preferredCategories || [])
+    .map(mapNoteCategoryToBodyType)
+    .filter((value): value is string => Boolean(value));
+  const vehicleCategories = dedupeStrings([
+    ...prefs.bodyTypes,
+    ...noteCategories,
+  ]);
+  const seatsMin = harmonizeMinimum(prefs.seatsMin, noteConstraints.minSeating);
+  const mileageMax = harmonizeMaximum(
+    prefs.mileageMax,
+    noteConstraints.maxMileage,
+  );
+
   return {
     budget_min: prefs.priceMin ?? null,
     budget_max: prefs.priceMax ?? null,
@@ -545,11 +554,56 @@ function preferencesToUserFilter(prefs: Preferences): UserFilter {
     year_min: prefs.yearMin ?? null,
     year_max: prefs.yearMax ?? null,
     mileage_min: prefs.mileageMin ?? null,
-    mileage_max: prefs.mileageMax ?? null,
-    available_seating: prefs.seatsMin ?? null,
-    fuel_type: prefs.fuelTypes,
-    vehicle_category: prefs.bodyTypes,
+    mileage_max: mileageMax,
+    available_seating: seatsMin,
+    fuel_type: fuelTypes.length ? fuelTypes : undefined,
+    vehicle_category: vehicleCategories.length ? vehicleCategories : undefined,
+    drivetrain: noteConstraints.requiresAwd ? ['AWD', '4WD'] : undefined,
     notes: prefs.notes,
     condition: prefs.used === 'Any' ? undefined : prefs.used.toLowerCase(),
   } satisfies UserFilter;
+}
+
+function dedupeStrings<T extends string>(values: T[]): T[] {
+  return Array.from(new Set(values.filter(Boolean))) as T[];
+}
+
+function mapPreferredFuelToFilter(value?: string | null): FuelPreference | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (normalized === 'hybrid') return 'Hybrid';
+  if (normalized === 'electric') return 'Electric';
+  if (normalized === 'gas') return 'Gas';
+  return null;
+}
+
+function mapNoteCategoryToBodyType(value?: string | null): BodyStylePreference | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (normalized.includes('suv')) return 'SUV';
+  if (normalized.includes('truck')) return 'Truck';
+  if (normalized.includes('van')) return 'Minivan';
+  if (normalized.includes('crossover')) return 'Crossover';
+  if (normalized.includes('wagon')) return 'Wagon';
+  if (normalized.includes('coupe')) return 'Coupe';
+  if (normalized.includes('sedan') || normalized.includes('car')) return 'Sedan';
+  return null;
+}
+
+function harmonizeMinimum(a?: number | null, b?: number | null) {
+  const aVal = typeof a === 'number' && Number.isFinite(a) ? a : null;
+  const bVal = typeof b === 'number' && Number.isFinite(b) ? b : null;
+  if (aVal != null && bVal != null) return Math.max(aVal, bVal);
+  if (aVal != null) return aVal;
+  if (bVal != null) return bVal;
+  return null;
+}
+
+function harmonizeMaximum(a?: number | null, b?: number | null) {
+  const aVal = typeof a === 'number' && Number.isFinite(a) ? a : null;
+  const bVal = typeof b === 'number' && Number.isFinite(b) ? b : null;
+  if (aVal != null && bVal != null) return Math.min(aVal, bVal);
+  if (aVal != null) return aVal;
+  if (bVal != null) return bVal;
+  return null;
 }

@@ -5,9 +5,29 @@ import { GoogleGenAI } from '@google/genai';
 import { getCsvCars } from '@/data/csvCars.server';
 import { normalizeZipCode, getZipCoordinates, getDealerLocation, computeDistanceMiles, Coordinates } from '@/lib/location';
 
+const DEFAULT_RESULT_LIMIT = 10;
+const MAX_RESULT_LIMIT = 40;
+type AnalyzePayload = Preferences & { limit?: number };
+type GeminiResponse = { text?: string | null };
+type LegacyGeminiClient = GoogleGenAI & {
+  models?: { generateContent?: (input: unknown) => Promise<GeminiResponse> };
+  generate?: (input: unknown) => Promise<GeminiResponse>;
+  responses?: { generate?: (input: unknown) => Promise<GeminiResponse> };
+};
+
+function normalizeLimit(value?: number | null) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_RESULT_LIMIT;
+  const whole = Math.floor(value);
+  if (whole < 1) return 1;
+  if (whole > MAX_RESULT_LIMIT) return MAX_RESULT_LIMIT;
+  return whole;
+}
+
 export async function POST(req: Request) {
   try {
-    const prefs = (await req.json()) as Preferences;
+    const payload = (await req.json()) as AnalyzePayload;
+    const { limit: requestedLimit, ...prefs } = payload;
+    const limit = normalizeLimit(requestedLimit);
     const key = (process.env.GEMINI_API_KEY || '').trim();
     const cars = getCsvCars();
     const filtered = filterCars(cars, prefs);
@@ -15,8 +35,8 @@ export async function POST(req: Request) {
     const noteConstraints = deriveNoteConstraints(prefs.notes);
 
     if (!key) {
-      // Fallback: sample filtered (or entire dataset if empty), pick up to 10
-      const sampled = orderCarsForDisplay(sampleRandom(fallbackBase, 10), prefs);
+      // Fallback: sample filtered (or entire dataset if empty), pick up to limit
+      const sampled = orderCarsForDisplay(sampleRandom(fallbackBase, limit), prefs);
       const res: AnalyzeResponse = {
         cars: decorateCarsForClient(sampled, prefs),
         warning: 'Server missing GEMINI_API_KEY. Showing a randomized filtered selection instead.',
@@ -26,36 +46,37 @@ export async function POST(req: Request) {
 
     // With key: use new @google/genai client to choose the best up to 10 by ID
     const ai = new GoogleGenAI({ apiKey: key });
+    const legacyClient = ai as LegacyGeminiClient;
     const { promptCars, totalMatches } = getPromptDataset(filtered, cars, prefs);
-    const prompt = buildPrompt(prefs, promptCars, totalMatches, describeNoteConstraints(noteConstraints));
+    const prompt = buildPrompt(prefs, promptCars, totalMatches, describeNoteConstraints(noteConstraints), limit);
 
     let text = '';
     try {
-      let response: any;
-      if (typeof (ai as any).models?.generateContent === 'function') {
-        response = await (ai as any).models.generateContent({
+      let response: GeminiResponse | null = null;
+      if (typeof legacyClient.models?.generateContent === 'function') {
+        response = await legacyClient.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: { temperature: 0.2, responseMimeType: 'application/json' },
         });
-      } else if (typeof (ai as any).generate === 'function') {
-        response = await (ai as any).generate({
+      } else if (typeof legacyClient.generate === 'function') {
+        response = await legacyClient.generate({
           model: 'gemini-2.5-flash',
           prompt,
           temperature: 0.2,
         });
-      } else if (typeof (ai as any).responses?.generate === 'function') {
-        response = await (ai as any).responses.generate({
+      } else if (typeof legacyClient.responses?.generate === 'function') {
+        response = await legacyClient.responses.generate({
           model: 'gemini-2.5-flash',
           input: prompt,
         });
       } else {
         throw new Error('Unsupported Gemini client API');
       }
-      text = response.text ?? '';
+      text = response?.text ?? '';
     } catch (error) {
       console.error('Gemini generateContent failed', error);
-      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, limit), prefs);
       return NextResponse.json({
         cars: decorateCarsForClient(chosen, prefs),
         warning: 'Gemini request failed. Using heuristic results.',
@@ -75,7 +96,7 @@ export async function POST(req: Request) {
         descriptions = parsed.descriptions as Record<string, string>;
       }
     } catch {
-      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, limit), prefs);
       return NextResponse.json({
         cars: decorateCarsForClient(chosen, prefs),
         warning: 'Gemini response could not be parsed. Using heuristic results.',
@@ -87,7 +108,7 @@ export async function POST(req: Request) {
     const selected: Car[] = ids.map((id: number) => map.get(id)).filter(Boolean) as Car[];
 
     // Safety: if Gemini returned nothing, fallback to heuristic top N
-    const finalCars = selected.length ? selected.slice(0, 10) : pickTopN(fallbackBase, prefs, 10);
+    const finalCars = selected.length ? selected.slice(0, limit) : pickTopN(fallbackBase, prefs, limit);
     const orderedCars = orderCarsForDisplay(finalCars, prefs);
 
     const res: AnalyzeResponse = {
@@ -139,13 +160,13 @@ function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
   };
 }
 
-function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, noteSummary: string) {
+function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, noteSummary: string, limit: number) {
   const csv = carsToCsv(cars);
   const shown = Math.min(cars.length, PROMPT_ROW_LIMIT);
   const guardrails = formatGuardrailLines(prefs);
   const notes = prefs.notes?.trim() ? prefs.notes.trim() : 'No additional notes provided.';
   return [
-    'You are a Toyota inventory matchmaker. Analyze the CSV data below and choose up to 10 listings that best satisfy the user preferences.',
+    `You are a Toyota inventory matchmaker. Analyze the CSV data below and choose up to ${limit} listings that best satisfy the user preferences and chat notes.`,
     'Respect these structured guardrails before applying your own desirability ranking:',
     guardrails,
     `Derived note constraints: ${noteSummary}`,
@@ -153,7 +174,7 @@ function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, note
     'User preferences (JSON):',
     JSON.stringify(prefs),
     `Only pick Ids that exist in the CSV rows (showing ${shown} of ${totalMatches} matching records).`,
-    'Respond with strict JSON: {"ids":[<Id numbers>],"descriptions":{"<Id>":"1-2 sentence reason referencing user notes"},"reasoning":"concise summary"}',
+    `Respond with strict JSON (max ${limit} ids): {"ids":[<Id numbers>],"descriptions":{"<Id>":"1-2 sentence reason referencing user notes"},"reasoning":"concise summary"}`,
     '',
     'CSV:',
     csv,
