@@ -2,11 +2,12 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import NavBar from '@/components/NavBar';
 
 export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get('next') || '/';
+  const nextPath = searchParams.get('next') || '/find';
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -62,13 +63,10 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
+      <NavBar />
+      <div className="page-fade-in mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
         <section className="flex-1">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <span className="h-3 w-3 rounded-full bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
-            ToyotaTinder
-          </Link>
-          <h1 className="mt-6 text-4xl font-bold tracking-tight text-slate-900">Create your driver profile</h1>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">Create your driver profile</h1>
           <p className="mt-4 text-lg text-slate-600">
             Spin up a ToyotaTinder account to sync your preferences, unlock swipe mode, and keep your pit crew
             in lockstep across devices.

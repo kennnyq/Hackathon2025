@@ -6,7 +6,7 @@ ToyotaTinder blends a curated Toyota inventory dataset, Google’s Gemini 2.5 Fl
 ---
 
 ### ✨ Key Features
-- **Preference intake** – guided form at `/find` captures budget, fuel type, condition, usage, and notes.
+- **Preference intake** – guided form at `/find` captures budget, fuel type, mileage targets, usage, and notes.
 - **Gemini-powered ranking** – `/api/analyze` streams CSV inventory into Gemini 2.5 Flash and receives strict JSON IDs plus reasoning; falls back to a heuristic scorer if no API key or the request fails.
 - **Swipe deck** – `/swipe` renders a stacked, draggable deck (Framer Motion) that mimics Tinder interactions with skip/like CTA buttons for keyboardless use.
 - **Persistent likes & results** – matches, AI reasoning, and favorites are cached in `localStorage` so refreshing or browsing between pages preserves progress.
@@ -20,7 +20,7 @@ ToyotaTinder blends a curated Toyota inventory dataset, Google’s Gemini 2.5 Fl
 | --- | --- |
 | UI | Next.js App Router (React 19) + Tailwind CSS 4 utility classes defined in `src/app/globals.css`, Framer Motion for hero + deck animation, custom PageTransition for subtle route delays. |
 | Data | `src/data/CarData.csv` ingested via `csvCars.server.ts`, normalized into typed `Car` objects. |
-| AI | `@google/genai` client calls Gemini 2.5 Flash with a CSV prompt capped at 75 rows; expects `{"ids":[],"reasoning":""}`. Absent keys trigger `pickTopN` scoring or randomized fallback with warnings surfaced in UI. |
+| AI | `@google/genai` client calls Gemini 2.5 Flash with a CSV prompt capped at 75 rows; expects `{"ids":[],"descriptions":{},"reasoning":""}`. Absent keys trigger `pickTopN` scoring or randomized fallback with warnings surfaced in UI. |
 | State | Client-side `likes.ts` wraps `localStorage` for likes, results, and meta warnings; `AuthGate` enforces login before swiping or viewing liked cars. |
 
 ---
@@ -61,7 +61,7 @@ Useful scripts:
 
 ### 🧠 How Matching Works
 1. **Collect preferences** – `/find` POSTs `Preferences` to `/api/analyze`.
-2. **Filter + format** – server filters the CSV dataset (budget cushion, fuel, condition, location substring) and constructs a 75-row CSV prompt.
+2. **Filter + format** – server filters the CSV dataset (budget cushion, fuel, mileage cap, location substring) and constructs a 75-row CSV prompt.
 3. **Gemini inference** – `GoogleGenAI` client requests `gemini-2.5-flash` using `responseMimeType: application/json` to keep parsing strict.
 4. **Reasoned output** – API returns selected car IDs + reasoning text; IDs map back to `Car` objects before saving to the client.
 5. **Swipe experience** – `/swipe` loads cached results, animates cards, and records likes. Each right swipe adds the car to saved likes for `/liked`.
