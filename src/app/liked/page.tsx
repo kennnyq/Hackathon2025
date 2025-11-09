@@ -3,14 +3,15 @@ import NavBar from '@/components/NavBar';
 import { getLikedCars, clearLikes } from '@/lib/likes';
 import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Car } from '@/lib/types';
-import AuthGate from '@/components/AuthGate';
 import Image from 'next/image';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 type SortKey = 'az' | 'price-asc' | 'price-desc' | 'mpg-asc' | 'mpg-desc';
 
 const MODAL_ANIMATION_MS = 240;
 
 export default function LikedPage() {
+  useRequireAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
@@ -168,36 +169,35 @@ export default function LikedPage() {
 
 
   return (
-    <AuthGate>
-      <main>
-        <NavBar />
-        <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
-          <header className="text-center">
-            <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
-            <h1 className="mt-3 text-4xl font-bold text-slate-900">Find your saved Toyotas</h1>
-            <p className="mt-2 text-slate-600">Dial in seating, budget, and body style filters to revisit the Toyotas you loved.</p>
-          </header>
+    <main>
+      <NavBar />
+      <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
+        <header className="text-center">
+          <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
+          <h1 className="mt-3 text-4xl font-bold text-slate-900">Find your saved Toyotas</h1>
+          <p className="mt-2 text-slate-600">Dial in seating, budget, and body style filters to revisit the Toyotas you loved.</p>
+        </header>
 
-          <div className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10">
-            <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
-              <aside className="border-r border-slate-100 pr-0 lg:pr-8">
-                <div className="flex items-center justify-between pb-4">
-                  <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
-                  <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
-                    Reset
-                  </button>
-                </div>
-                <FilterBlock title="Vehicles">
-                  {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
-                  {typeOptions.map(([type, count]) => (
-                    <FilterCheckbox
-                      key={type}
-                      label={`${type} (${count})`}
-                      checked={selectedTypes.includes(type)}
-                      onChange={() => toggleType(type)}
-                    />
-                  ))}
-                </FilterBlock>
+        <div className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10">
+          <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
+            <aside className="border-r border-slate-100 pr-0 lg:pr-8">
+              <div className="flex items-center justify-between pb-4">
+                <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+                <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
+                  Reset
+                </button>
+              </div>
+              <FilterBlock title="Vehicles">
+                {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
+                {typeOptions.map(([type, count]) => (
+                  <FilterCheckbox
+                    key={type}
+                    label={`${type} (${count})`}
+                    checked={selectedTypes.includes(type)}
+                    onChange={() => toggleType(type)}
+                  />
+                ))}
+              </FilterBlock>
 
                 <FilterBlock title="Price (MSRP)">
                   <div className="space-y-4">
@@ -295,7 +295,6 @@ export default function LikedPage() {
           />
         )}
       </main>
-    </AuthGate>
   );
 }
 

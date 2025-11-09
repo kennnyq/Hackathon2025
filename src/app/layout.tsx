@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import PageTransition from '@/components/PageTransition';
 
+import LoadingOverlayProvider from '@/components/LoadingOverlayProvider';
 export const metadata: Metadata = {
   title: 'ToyotaTinder',
   description: 'Find your optimal Toyota',
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="min-h-screen bg-white text-slate-900 antialiased">
-        <PageTransition>{children}</PageTransition>
+        <LoadingOverlayProvider>
+          <PageTransition>{children}</PageTransition>
+        </LoadingOverlayProvider>
       </body>
     </html>
   );
