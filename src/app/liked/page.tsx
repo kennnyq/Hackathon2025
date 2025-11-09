@@ -1,7 +1,7 @@
 'use client';
 import NavBar from '@/components/NavBar';
 import { getLikedCars, clearLikes } from '@/lib/likes';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Car } from '@/lib/types';
 import AuthGate from '@/components/AuthGate';
 import Image from 'next/image';
@@ -376,11 +376,26 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
   const category = getCategory(car);
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
+  const dealerName = car.Dealer || 'Dealer pending';
+  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
+  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
+  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
+  const dealerWebsite = car.DealerWebsite;
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect();
+    }
+  }
+
   return (
-    <button
-      type="button"
+    <article
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)]"
+      onKeyDown={handleKeyDown}
+      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)] focus:outline-none focus:ring-2 focus:ring-red-300"
     >
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
         <span>{category}</span>
@@ -402,7 +417,32 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
           <p className="mt-1">{seating}</p>
         </div>
       </div>
-    </button>
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-sm text-slate-600">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer</p>
+        <p className="font-semibold text-slate-900">{dealerName}</p>
+        <p>{dealerDetails || 'Distance visible after sharing a zip code.'}</p>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {dealerWebsite && (
+          <a
+            href={dealerWebsite}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-primary px-4 py-2 text-sm"
+            onClick={event => event.stopPropagation()}
+          >
+            Reach out to dealer
+          </a>
+        )}
+        <button
+          type="button"
+          className="btn btn-outline px-4 py-2 text-sm"
+          onClick={event => event.stopPropagation()}
+        >
+          Explore
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -420,6 +460,11 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
   const whyItFits = car.FitDescription || 'Reasoning unavailable. Check back soon!';
+  const dealerName = car.Dealer || 'Dealer pending';
+  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
+  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
+  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
+  const dealerWebsite = car.DealerWebsite;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6 md:p-10">
@@ -490,6 +535,19 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
               <p className="mt-2 text-base text-slate-700">{whyItFits}</p>
+            </div>
+            <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{dealerName}</p>
+              <p className="text-sm text-slate-500">{dealerDetails || 'Distance visible after sharing a zip code.'}</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {dealerWebsite && (
+                  <a href={dealerWebsite} target="_blank" rel="noreferrer" className="btn btn-primary px-4 py-2 text-sm">
+                    Reach out to dealer
+                  </a>
+                )}
+                <button type="button" className="btn btn-outline px-4 py-2 text-sm">Explore</button>
+              </div>
             </div>
             {highlights.length > 0 && (
               <div>

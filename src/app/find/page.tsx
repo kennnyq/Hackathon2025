@@ -22,6 +22,7 @@ const CONDITION_OPTIONS: Preferences['used'][] = ['Any', 'New', 'Used'];
 const BODY_TYPE_OPTIONS = ['SUV', 'Sedan', 'Truck', 'Minivan', 'Hatchback', 'Wagon', 'Coupe'] as const;
 const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_ZIP = '75080';
 type SectionKey = 'price' | 'body' | 'efficiency';
 
 export default function FindPage() {
@@ -79,6 +80,7 @@ export default function FindPage() {
     const bodyTypes = fd.getAll('bodyTypes').map(value => value.toString()) as Preferences['bodyTypes'];
     const fuelTypes = fd.getAll('fuelTypes').map(value => value.toString()) as Preferences['fuelTypes'];
     const prefs: Preferences = {
+      zipCode: parseZip(fd.get('zipCode')),
       priceMin: parseFormNumber(fd.get('priceMin')),
       priceMax: parseFormNumber(fd.get('priceMax')),
       used: (fd.get('used') as Preferences['used'] | null) ?? 'Any',
@@ -259,6 +261,21 @@ export default function FindPage() {
                         <input className="input" id="mpgMax" name="mpgMax" type="number" min={0} max={80} placeholder="45" />
                       </div>
                     </div>
+                    <div>
+                      <label className="label" htmlFor="zipCode">Your zip code</label>
+                      <div className="grid gap-2 md:grid-cols-[160px]">
+                        <input
+                          className="input md:max-w-xs"
+                          id="zipCode"
+                          name="zipCode"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="\\d{5}"
+                          placeholder={DEFAULT_ZIP}
+                          maxLength={5}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </PreferenceSection>
               </div>
@@ -427,4 +444,11 @@ function parseFormNumber(value: FormDataEntryValue | null) {
   if (typeof value === 'string' && value.trim() === '') return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function parseZip(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (/^\d{5}$/.test(trimmed)) return trimmed;
+  return null;
 }

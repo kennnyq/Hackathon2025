@@ -3,6 +3,7 @@ import { AnalyzeResponse, Car, Preferences } from '@/lib/types';
 import { filterCars, pickTopN, orderCarsForDisplay, deriveNoteConstraints, describeNoteConstraints } from '@/lib/util';
 import { GoogleGenAI } from '@google/genai';
 import { getCsvCars } from '@/data/csvCars.server';
+import { normalizeZipCode, getZipCoordinates, getDealerLocation, computeDistanceMiles, Coordinates } from '@/lib/location';
 
 export async function POST(req: Request) {
   try {
@@ -257,15 +258,62 @@ function sampleRandom(cars: Car[], count: number) {
 const DEFAULT_IMAGE_URL = '/car-placeholder.svg';
 
 function decorateCarsForClient(cars: Car[], prefs: Preferences, descriptions?: Record<string, string>) {
+  const userZip = normalizeZipCode(prefs.zipCode);
+  const homeCoords = getZipCoordinates(userZip);
   return cars.map(car => {
     const carId = String(car.Id);
     const provided = descriptions?.[carId];
+    const enriched = attachDealerMetadata(car, userZip, homeCoords);
     return {
-      ...car,
-      ImageUrl: car.ImageUrl || DEFAULT_IMAGE_URL,
-      FitDescription: buildFallbackDescription(car, prefs, provided),
+      ...enriched,
+      ImageUrl: enriched.ImageUrl || DEFAULT_IMAGE_URL,
+      FitDescription: buildFallbackDescription(enriched, prefs, provided),
     };
   });
+}
+
+function attachDealerMetadata(car: Car, userZip: string, homeCoords: Coordinates | null): Car {
+  const dealerDetails = getDealerLocation(car.Dealer);
+  const computedDistance = dealerDetails && homeCoords ? computeDistanceMiles(homeCoords, dealerDetails.coordinates) : undefined;
+  const fallbackDistance = typeof car.DistanceMiles === 'number' ? car.DistanceMiles : undefined;
+  const finalDistance = typeof computedDistance === 'number' ? computedDistance : fallbackDistance;
+
+  const dealerCity = dealerDetails?.city ?? car.DealerCity;
+  const dealerState = dealerDetails?.state ?? car.DealerState;
+  const dealerZip = dealerDetails?.zip ?? car.DealerZip;
+
+  const hasDealerMeta = Boolean(dealerDetails || dealerCity || dealerState);
+  const locationLabel = hasDealerMeta || typeof finalDistance === 'number'
+    ? buildDealerLocationLabel(car.Dealer || 'Toyota dealer', dealerCity, dealerState, finalDistance)
+    : (car.Location || car.Dealer || 'Toyota dealer');
+
+  return {
+    ...car,
+    Location: locationLabel,
+    DistanceMiles: finalDistance,
+    DealerCity: dealerCity,
+    DealerState: dealerState,
+    DealerZip: dealerZip,
+    UserZip: userZip,
+    DistanceLabel: typeof finalDistance === 'number' ? formatDistance(finalDistance) : undefined,
+  };
+}
+
+function buildDealerLocationLabel(name: string, city?: string, state?: string, distance?: number) {
+  const labelParts = [name.trim()];
+  if (city && state) {
+    labelParts.push(`${city}, ${state}`);
+  } else if (city) {
+    labelParts.push(city);
+  }
+  if (typeof distance === 'number' && Number.isFinite(distance)) {
+    labelParts.push(formatDistance(distance));
+  }
+  return labelParts.join(' · ');
+}
+
+function formatDistance(distance: number) {
+  return `${distance.toFixed(1)} mi away`;
 }
 
 function buildFallbackDescription(car: Car, prefs: Preferences, provided?: string) {

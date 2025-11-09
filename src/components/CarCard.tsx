@@ -14,7 +14,13 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
   const drivetrain = car.Drivetrain || null;
   const exterior = car.ExteriorColor || null;
   const interior = car.InteriorColor || null;
+  const dealerName = car.Dealer || 'Dealer pending';
+  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
+  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
+  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
   const keyHighlights = [
+    { label: 'Dealer', value: car.Dealer },
+    { label: 'Distance', value: distanceText },
     { label: 'Mileage', value: mileage },
     { label: 'Drivetrain', value: drivetrain },
     { label: 'Fuel', value: fuel },
@@ -56,6 +62,12 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
           <p className="text-xs uppercase tracking-wide text-slate-500">Price</p>
           <p className="text-2xl font-bold text-slate-900">${car.Price.toLocaleString()}</p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-inner shadow-white/40">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer & distance</p>
+        <p className="mt-2 text-base font-semibold text-slate-900">{dealerName}</p>
+        <p className="text-sm text-slate-500">{dealerDetails || 'Share a zip code to unlock drive distance.'}</p>
       </div>
 
       <div className="flex-1 overflow-hidden">

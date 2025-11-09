@@ -96,6 +96,7 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     ExteriorColor: record.exterior_color?.trim() || undefined,
     InteriorColor: record.interior_color?.trim() || undefined,
     Dealer: dealer || undefined,
+    DealerWebsite: record.dealership_website?.trim() || undefined,
     DistanceMiles: Number.isFinite(distance) ? Number(distance.toFixed(1)) : undefined,
     Seating: Number.isFinite(seating) ? seating : deriveSeating(record.model, vehicleCategory),
   };
