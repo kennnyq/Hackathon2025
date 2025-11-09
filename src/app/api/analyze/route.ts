@@ -101,6 +101,8 @@ const PROMPT_HEADER = [
   'MPG',
   'ExteriorColor',
   'InteriorColor',
+  'Seats',
+  'VehicleCategory',
 ] as const;
 
 function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
@@ -163,6 +165,8 @@ function getCarField(car: Car, column: typeof PROMPT_HEADER[number]) {
     case 'MPG': return car.MPG;
     case 'ExteriorColor': return car.ExteriorColor;
     case 'InteriorColor': return car.InteriorColor;
+    case 'Seats': return car.Seating;
+    case 'VehicleCategory': return car.VehicleCategory || car.Type;
     default: return '';
   }
 }

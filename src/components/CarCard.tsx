@@ -5,13 +5,15 @@ import { Car } from '@/lib/types';
 const FALLBACK_DESCRIPTION = 'Gemini could not generate a personalized note, but this Toyota still lines up with your stated priorities.';
 
 export default function CarCard({ car, className = '' }: { car: Car; className?: string }) {
-  const wrapperClass = ['card w-[320px] space-y-4', className].filter(Boolean).join(' ');
+  const wrapperClass = ['card w-[320px] space-y-3 overflow-hidden', className].filter(Boolean).join(' ');
   const mileage = typeof car.Mileage === 'number' ? `${car.Mileage.toLocaleString()} mi` : '—';
   const distance = typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles} mi away` : 'Distance TBD';
   const fuel = car['Fuel Type'] || car.FuelType || '—';
   const description = car.FitDescription?.trim() || FALLBACK_DESCRIPTION;
+  const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : '—';
   const keyStats = [
     { label: 'Mileage', value: mileage },
+    { label: 'Seating', value: seating },
     { label: 'Fuel', value: fuel },
     { label: 'Usage', value: car.Used ? 'Used' : 'New' },
     { label: 'Condition', value: car.Condition || '—' },
@@ -54,16 +56,16 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-900/10 bg-slate-900/90 p-4 text-sm text-white shadow-lg shadow-slate-900/30">
-        <p className="font-semibold text-red-200">Why it fits</p>
-        <p className="mt-1 text-slate-100">{description}</p>
+      <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-700 shadow-inner">
+        <p className="text-xs uppercase tracking-[0.3em] text-red-500">Why it fits</p>
+        <p className="mt-1 leading-relaxed">{description}</p>
       </div>
 
       <section>
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Key highlights</div>
-        <dl className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-900">
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-900">
           {keyStats.map(stat => (
-            <div key={stat.label} className="rounded-xl border border-white/60 bg-white/70 p-3 backdrop-blur">
+            <div key={stat.label} className="rounded-xl border border-slate-100 bg-white/80 p-3 backdrop-blur-sm">
               <dt className="text-xs uppercase tracking-wide text-slate-500">{stat.label}</dt>
               <dd className="font-medium">{stat.value || '—'}</dd>
             </div>
@@ -71,17 +73,20 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
         </dl>
       </section>
 
-      <section>
-        <div className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Detailed specs</div>
-        <dl className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-900">
+      <details className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700">
+        <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          Detailed specs
+          <span className="text-[10px] text-slate-400">Tap to view</span>
+        </summary>
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-900">
           {specDetails.filter(spec => spec.value && spec.value !== 'null').map(spec => (
-            <div key={spec.label} className="rounded-xl border border-slate-200 bg-white/80 p-3 backdrop-blur">
+            <div key={spec.label} className="rounded-xl border border-slate-200 bg-white/80 p-3 backdrop-blur-sm">
               <dt className="text-xs uppercase tracking-wide text-slate-500">{spec.label}</dt>
               <dd className="font-medium text-slate-900">{spec.value}</dd>
             </div>
           ))}
         </dl>
-      </section>
+      </details>
     </div>
   );
 }

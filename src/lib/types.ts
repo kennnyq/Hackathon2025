@@ -20,6 +20,8 @@ export type Car = {
   DistanceMiles?: number;
   FitDescription?: string;
   ImageUrl?: string;
+  Seating?: number;
+  VehicleCategory?: 'Cars' | 'SUVs' | 'Trucks' | 'Minivan' | 'Crossovers' | 'Other' | string;
 };
 
 export type Preferences = {
