@@ -6,7 +6,7 @@ import { filterCars, pickTopN } from '@/lib/util';
 export async function POST(req: Request) {
   try {
     const prefs = (await req.json()) as Preferences;
-    const key = (prefs.apiKey || process.env.GEMINI_API_KEY || '').trim();
+    const key = (process.env.GEMINI_API_KEY || '').trim();
 
     const filtered = filterCars(cars as Car[], prefs);
 
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       const chosen = shuffled.slice(0, Math.min(10, shuffled.length));
       const res: AnalyzeResponse = {
         cars: chosen,
-        warning: 'No Gemini API key provided. Showing a randomized filtered selection instead.',
+        warning: 'Server missing GEMINI_API_KEY. Showing a randomized filtered selection instead.',
       };
       return NextResponse.json(res);
     }
