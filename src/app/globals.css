@@ -11,6 +11,44 @@
 .card {
   @apply rounded-2xl p-6 bg-white border border-red-100/70 shadow-[0_15px_45px_rgba(15,23,42,0.08)];
 }
+.card-top {
+  flex: 0 0 auto;
+}
+.card-image-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.9));
+}
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.card-content-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+  padding-bottom: 0.25rem;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+.card-content-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.card-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.card-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+}
 
 /* Buttons */
 .btn {

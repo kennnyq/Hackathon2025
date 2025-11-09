@@ -5,7 +5,12 @@ import { Car } from '@/lib/types';
 const FALLBACK_DESCRIPTION = 'Gemini could not generate a personalized note, but this Toyota still lines up with your stated priorities.';
 
 export default function CarCard({ car, className = '' }: { car: Car; className?: string }) {
-  const wrapperClass = ['card w-[320px] h-[540px] flex flex-col gap-4 overflow-hidden', className].filter(Boolean).join(' ');
+  const wrapperClass = [
+    'card relative flex w-[320px] max-w-[360px] flex-col gap-4 overflow-hidden sm:w-[360px] h-[560px] max-h-[88vh]',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const mileage = typeof car.Mileage === 'number' ? `${car.Mileage.toLocaleString()} mi` : null;
   const fuel = car['Fuel Type'] || car.FuelType || null;
   const description = car.FitDescription?.trim() || FALLBACK_DESCRIPTION;
@@ -39,39 +44,41 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
 
   return (
     <div className={wrapperClass}>
-      <div className="overflow-hidden rounded-3xl border border-white/60 shadow-inner">
-        <Image
-          src={imageSrc}
-          alt={`${car.Year} ${car.Model}`}
-          width={640}
-          height={300}
-          className="h-40 w-full object-cover"
-          priority={false}
-        />
-      </div>
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{category}</p>
-          <h3 className="text-[1.65rem] leading-snug font-semibold text-slate-900">
-            {car.Year} {car.Model}
-          </h3>
-          <p className="text-sm text-slate-600 capitalize">{car.Condition || (car.Used ? 'Used' : 'New')}</p>
+      <div className="card-top space-y-4">
+        <div className="card-image-wrapper">
+          <Image
+            src={imageSrc}
+            alt={`${car.Year} ${car.Model}`}
+            fill
+            sizes="(max-width: 640px) 90vw, 360px"
+            className="card-image"
+            priority={false}
+          />
         </div>
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Price</p>
-          <p className="text-2xl font-bold text-slate-900">${car.Price.toLocaleString()}</p>
+
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{category}</p>
+            <h3 className="text-[1.65rem] leading-snug font-semibold text-slate-900">
+              {car.Year} {car.Model}
+            </h3>
+            <p className="text-sm text-slate-600 capitalize">{car.Condition || (car.Used ? 'Used' : 'New')}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Price</p>
+            <p className="text-2xl font-bold text-slate-900">${car.Price.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-inner shadow-white/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer & distance</p>
+          <p className="mt-2 text-base font-semibold text-slate-900">{dealerName}</p>
+          <p className="text-sm text-slate-500">{dealerDetails || 'Share a zip code to unlock drive distance.'}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-inner shadow-white/40">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer & distance</p>
-        <p className="mt-2 text-base font-semibold text-slate-900">{dealerName}</p>
-        <p className="text-sm text-slate-500">{dealerDetails || 'Share a zip code to unlock drive distance.'}</p>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full space-y-4 overflow-y-auto pr-1">
+      <div className="card-content-scroll">
+        <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-700 shadow-inner">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
             <p className="mt-1 leading-relaxed">{description}</p>

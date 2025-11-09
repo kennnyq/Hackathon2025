@@ -99,9 +99,17 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     DealerWebsite: record.dealership_website?.trim() || undefined,
     DistanceMiles: Number.isFinite(distance) ? Number(distance.toFixed(1)) : undefined,
     Seating: Number.isFinite(seating) ? seating : deriveSeating(record.model, vehicleCategory),
+    ImageUrl: formatImagePath(record.image),
   };
 
   return car;
+}
+
+function formatImagePath(imageName?: string) {
+  const trimmed = imageName?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith('/') || /^https?:\/\//i.test(trimmed)) return trimmed;
+  return `/images/${trimmed}`;
 }
 
 function buildLocation(dealer?: string, distance?: number) {
