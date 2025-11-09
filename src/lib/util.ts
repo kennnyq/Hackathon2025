@@ -1,7 +1,13 @@
 import { Car, Preferences } from './types';
 
 export function normalizeFuel(car: Car) {
-  return (car["Fuel Type"] || car.FuelType || '').toLowerCase();
+  const raw = (car.FuelType || car["Fuel Type"] || '').toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('hybrid')) return 'hybrid';
+  if (raw.includes('ev') || raw.includes('electric')) return 'ev';
+  if (raw.includes('hydrogen')) return 'other';
+  if (raw.includes('fuel') || raw.includes('gasoline') || raw.includes('gas') || raw.includes('diesel')) return 'fuel';
+  return raw;
 }
 
 export function filterCars(cars: Car[], prefs: Preferences): Car[] {
@@ -23,7 +29,7 @@ export function scoreCar(c: Car, prefs: Preferences): number {
 }
 
 export function pickTopN(cars: Car[], prefs: Preferences, n = 10): Car[] {
-  return cars
+  return [...cars]
     .sort((a, b) => scoreCar(b, prefs) - scoreCar(a, prefs))
     .slice(0, n);
 }

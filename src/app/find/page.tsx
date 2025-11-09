@@ -63,10 +63,10 @@ export default function FindPage() {
     const fd = new FormData(e.currentTarget);
     const prefs: Preferences = {
       budget: Number(fd.get('budget') || 0),
-      used: (fd.get('used') as any) || 'Any',
+      used: (fd.get('used') as Preferences['used'] | null) ?? 'Any',
       location: String(fd.get('location') || ''),
-      fuelType: (fd.get('fuelType') as any) || 'Any',
-      condition: (fd.get('condition') as any) || 'Any',
+      fuelType: (fd.get('fuelType') as Preferences['fuelType'] | null) ?? 'Any',
+      condition: (fd.get('condition') as Preferences['condition'] | null) ?? 'Any',
       notes: String(fd.get('notes') || ''),
     };
     setLoading(true);
@@ -88,8 +88,9 @@ export default function FindPage() {
       ]);
       router.push('/swipe');
       shouldResetLoading = false;
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      setError(message || 'Something went wrong');
     } finally {
       if (shouldResetLoading) {
         sequenceControllerRef.current?.abort();
