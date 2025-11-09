@@ -145,13 +145,13 @@ export function scoreCar(c: Car, prefs: Preferences): number {
 }
 
 export function pickTopN(cars: Car[], prefs: Preferences, n = 10): Car[] {
-  return [...cars]
-    .sort((a, b) => scoreCar(b, prefs) - scoreCar(a, prefs))
-    .slice(0, n);
+  const sorted = [...cars].sort((a, b) => scoreCar(b, prefs) - scoreCar(a, prefs));
+  return promoteModelVariety(sorted, n);
 }
 
 export function orderCarsForDisplay(cars: Car[], prefs: Preferences): Car[] {
-  return [...cars].sort((a, b) => scoreCar(b, prefs) - scoreCar(a, prefs));
+  const sorted = [...cars].sort((a, b) => scoreCar(b, prefs) - scoreCar(a, prefs));
+  return promoteModelVariety(sorted, sorted.length);
 }
 
 export function deriveNoteConstraints(notes: string | undefined | null): NoteConstraints {
@@ -348,4 +348,49 @@ function midpoint(min?: number | null, max?: number | null) {
   if (maxVal != null) return maxVal * 0.9;
   if (minVal != null) return minVal * 1.1;
   return null;
+}
+
+function promoteModelVariety(cars: Car[], limit = cars.length): Car[] {
+  const target = Math.min(limit, cars.length);
+  if (target <= 1) return cars.slice(0, target);
+
+  const buckets = new Map<string, Car[]>();
+  cars.forEach(car => {
+    const key = normalizeModelKey(car.Model);
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push(car);
+    } else {
+      buckets.set(key, [car]);
+    }
+  });
+
+  const diversified: Car[] = [];
+  const bucketList = Array.from(buckets.values());
+  let depth = 0;
+
+  while (diversified.length < target) {
+    let addedThisPass = false;
+    for (const bucket of bucketList) {
+      if (bucket.length > depth) {
+        diversified.push(bucket[depth]);
+        addedThisPass = true;
+        if (diversified.length === target) {
+          return diversified;
+        }
+      }
+    }
+    if (!addedThisPass) break;
+    depth += 1;
+  }
+
+  return diversified;
+}
+
+function normalizeModelKey(model?: string | null) {
+  return (model || 'unknown')
+    .toLowerCase()
+    .replace(/toyota\s+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
