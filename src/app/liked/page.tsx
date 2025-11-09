@@ -360,6 +360,7 @@ function PriceInput({ label, value, onChange, disabled }: { label: string; value
         className="mt-1 rounded-xl border border-slate-200 px-3 py-2 text-base font-normal text-slate-900 focus:border-red-500 focus:ring-2 focus:ring-red-200"
         value={value}
         min={0}
+        step={1000}
         onChange={e => onChange(Number(e.target.value))}
         disabled={disabled}
       />
@@ -380,6 +381,7 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
   const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
   const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
   const dealerWebsite = car.DealerWebsite;
+  const modelUrl = car.ModelUrl;
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -433,13 +435,17 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
             Reach out to dealer
           </a>
         )}
-        <button
-          type="button"
-          className="btn btn-outline px-4 py-2 text-sm"
-          onClick={event => event.stopPropagation()}
-        >
-          Explore
-        </button>
+        {modelUrl && (
+          <a
+            href={modelUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-outline px-4 py-2 text-sm"
+            onClick={event => event.stopPropagation()}
+          >
+            Explore
+          </a>
+        )}
       </div>
     </article>
   );
@@ -458,6 +464,7 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
   const category = getCategory(car);
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
+  const modelUrl = car.ModelUrl;
   const whyItFits = car.FitDescription || 'Reasoning unavailable. Check back soon!';
   const dealerName = car.Dealer || 'Dealer pending';
   const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
@@ -545,7 +552,11 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
                     Reach out to dealer
                   </a>
                 )}
-                <button type="button" className="btn btn-outline px-4 py-2 text-sm">Explore</button>
+                {modelUrl && (
+                  <a href={modelUrl} target="_blank" rel="noreferrer" className="btn btn-outline px-4 py-2 text-sm">
+                    Explore
+                  </a>
+                )}
               </div>
             </div>
             {highlights.length > 0 && (

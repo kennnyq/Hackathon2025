@@ -3,10 +3,11 @@ import NavBar from '@/components/NavBar';
 import { useLoadingOverlay } from '@/components/LoadingOverlayProvider';
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Preferences, AnalyzeResponse } from '@/lib/types';
-import { saveResults } from '@/lib/likes';
+import { Preferences, RecommendationResponse, UserFilter, Car } from '@/lib/types';
+import { saveResults, saveUserFilter } from '@/lib/likes';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSessionId } from '@/hooks/useSessionId';
 
 const LOADING_STEPS = [
   'Locking in your price window + condition…',
@@ -29,6 +30,7 @@ type SectionKey = 'price' | 'body' | 'efficiency';
 export default function FindPage() {
   const router = useRouter();
   useRequireAuth();
+  const sessionId = useSessionId();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -128,14 +130,30 @@ export default function FindPage() {
     const startedAt = Date.now();
     let shouldResetLoading = true;
     try {
-      const res = await fetch('/api/analyze', {
+      const userFilter = preferencesToUserFilter(prefs);
+      const payload = {
+        sessionId: sessionId || `session-${Date.now()}`,
+        userFilter,
+        limit: 10,
+      };
+      const res = await fetch('/api/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefs),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error('Failed to analyze');
-      const data: AnalyzeResponse = await res.json();
-      saveResults(data.cars, { warning: data.warning, reasoning: data.reasoning });
+      if (!res.ok) throw new Error('Failed to fetch recommendations');
+      const data: RecommendationResponse = await res.json();
+      if (!Array.isArray(data.results)) throw new Error('Recommendation response malformed');
+      const normalizedCars: Car[] = data.results.map(result => {
+        const { generated_description, score, ...rest } = result;
+        return {
+          ...rest,
+          FitDescription: generated_description,
+          Score: score,
+        };
+      });
+      saveResults(normalizedCars, null);
+      saveUserFilter(userFilter);
       await Promise.all([
         sequencePromise,
         sleep(SUCCESS_DEMO_DELAY_MS),
@@ -189,15 +207,15 @@ export default function FindPage() {
                       <div>
                         <label className="label" htmlFor="priceMin">Price from</label>
                         <div className="relative">
-                          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">$</span>
-                          <input className="input pl-8" id="priceMin" name="priceMin" type="number" min={0} step={1000} placeholder="30000" />
+                          <span className="input-prefix">$</span>
+                          <input className="input input--with-prefix" id="priceMin" name="priceMin" type="number" min={0} step={1} placeholder="30000" />
                         </div>
                       </div>
                       <div>
                         <label className="label" htmlFor="priceMax">Price to</label>
                         <div className="relative">
-                          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">$</span>
-                          <input className="input pl-8" id="priceMax" name="priceMax" type="number" min={0} step={1000} placeholder="50000" />
+                          <span className="input-prefix">$</span>
+                          <input className="input input--with-prefix" id="priceMax" name="priceMax" type="number" min={0} step={1} placeholder="50000" />
                         </div>
                       </div>
                     </div>
@@ -437,4 +455,22 @@ function parseZip(value: FormDataEntryValue | null) {
   const trimmed = value.trim();
   if (/^\d{5}$/.test(trimmed)) return trimmed;
   return null;
+}
+
+function preferencesToUserFilter(prefs: Preferences): UserFilter {
+  return {
+    budget_min: prefs.priceMin ?? null,
+    budget_max: prefs.priceMax ?? null,
+    price_min: prefs.priceMin ?? null,
+    price_max: prefs.priceMax ?? null,
+    year_min: prefs.yearMin ?? null,
+    year_max: prefs.yearMax ?? null,
+    mileage_min: prefs.mileageMin ?? null,
+    mileage_max: prefs.mileageMax ?? null,
+    available_seating: prefs.seatsMin ?? null,
+    fuel_type: prefs.fuelTypes,
+    vehicle_category: prefs.bodyTypes,
+    notes: prefs.notes,
+    condition: prefs.used === 'Any' ? undefined : prefs.used.toLowerCase(),
+  } satisfies UserFilter;
 }

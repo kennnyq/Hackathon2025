@@ -84,7 +84,7 @@ export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boo
           className="mx-auto mt-4 max-w-2xl text-lg text-slate-600"
           variants={heroItem}
         >
-          Share what matters—budget, family, weekend plans—and let our gentle AI guide surface Toyotas that feel thoughtfully chosen just for you.
+          Share what matters—budget, family, weekend plans—and let our thoughtful AI guide curate Toyotas that feel hand-selected just for you.
         </motion.p>
 
         <motion.div
