@@ -31,11 +31,27 @@ export async function POST(req: Request) {
 
     let text = '';
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { temperature: 0.2, responseMimeType: 'application/json' },
-      });
+      let response: any;
+      if (typeof (ai as any).models?.generateContent === 'function') {
+        response = await (ai as any).models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: { temperature: 0.2, responseMimeType: 'application/json' },
+        });
+      } else if (typeof (ai as any).generate === 'function') {
+        response = await (ai as any).generate({
+          model: 'gemini-2.5-flash',
+          prompt,
+          temperature: 0.2,
+        });
+      } else if (typeof (ai as any).responses?.generate === 'function') {
+        response = await (ai as any).responses.generate({
+          model: 'gemini-2.5-flash',
+          input: prompt,
+        });
+      } else {
+        throw new Error('Unsupported Gemini client API');
+      }
       text = response.text ?? '';
     } catch (error) {
       console.error('Gemini generateContent failed', error);

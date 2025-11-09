@@ -14,6 +14,8 @@ const STACK_LIMIT = 3;
 const PRELOAD_THRESHOLD = 5;
 const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
 
+let warning: string | null = null;
+
 export default function SwipePage() {
   useRequireAuth();
   const sessionId = useSessionId();
@@ -488,6 +490,5 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 function setWarning(warningMessage: string | undefined) {
-  throw new Error('Function not implemented.');
+  warning = warningMessage ?? null;
 }
-
