@@ -1,5 +1,6 @@
 'use client';
 import NavBar from '@/components/NavBar';
+import AuthGate from '@/components/AuthGate';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Preferences, AnalyzeResponse } from '@/lib/types';
@@ -105,59 +106,61 @@ export default function FindPage() {
   }
 
   return (
-    <main>
-      <NavBar />
-      <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
-        <h1 className="text-3xl font-bold">Your preferences</h1>
-        <form onSubmit={onSubmit} className="mt-6 grid gap-4 card">
-          <div>
-            <label className="label" htmlFor="budget">Budget (USD)</label>
-            <input className="input" id="budget" name="budget" type="number" min={0} placeholder="30000" required />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <AuthGate>
+      <main>
+        <NavBar />
+        <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
+          <h1 className="text-3xl font-bold">Your preferences</h1>
+          <form onSubmit={onSubmit} className="mt-6 grid gap-4 card">
             <div>
-              <label className="label" htmlFor="used">New / Used</label>
-              <select className="select" id="used" name="used" defaultValue="Any">
-                <option>Any</option>
-                <option>New</option>
-                <option>Used</option>
-              </select>
+              <label className="label" htmlFor="budget">Budget (USD)</label>
+              <input className="input" id="budget" name="budget" type="number" min={0} placeholder="30000" required />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="label" htmlFor="used">New / Used</label>
+                <select className="select" id="used" name="used" defaultValue="Any">
+                  <option>Any</option>
+                  <option>New</option>
+                  <option>Used</option>
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="fuelType">Fuel Type</label>
+                <select className="select" id="fuelType" name="fuelType" defaultValue="Any">
+                  <option>Any</option>
+                  <option>Hybrid</option>
+                  <option>EV</option>
+                  <option>Fuel</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="maxMileage">Max Mileage</label>
+                <input className="input" id="maxMileage" name="maxMileage" type="number" min={0} step={5000} placeholder="60000" />
+              </div>
             </div>
             <div>
-              <label className="label" htmlFor="fuelType">Fuel Type</label>
-              <select className="select" id="fuelType" name="fuelType" defaultValue="Any">
-                <option>Any</option>
-                <option>Hybrid</option>
-                <option>EV</option>
-                <option>Fuel</option>
-                <option>Other</option>
-              </select>
+              <label className="label" htmlFor="location">Location</label>
+              <input className="input" id="location" name="location" placeholder="Dallas, TX" />
             </div>
             <div>
-              <label className="label" htmlFor="maxMileage">Max Mileage</label>
-              <input className="input" id="maxMileage" name="maxMileage" type="number" min={0} step={5000} placeholder="60000" />
+              <label className="label" htmlFor="notes">Additional details</label>
+              <textarea className="textarea" id="notes" name="notes" rows={4} placeholder="Must fit 2 car seats, highway commute, AWD preferred..." />
             </div>
-          </div>
-          <div>
-            <label className="label" htmlFor="location">Location</label>
-            <input className="input" id="location" name="location" placeholder="Dallas, TX" />
-          </div>
-          <div>
-            <label className="label" htmlFor="notes">Additional details</label>
-            <textarea className="textarea" id="notes" name="notes" rows={4} placeholder="Must fit 2 car seats, highway commute, AWD preferred..." />
-          </div>
-          <div className="flex items-center gap-3 pt-2">
-            <button disabled={loading} className="btn btn-primary" type="submit">
-              {loading ? 'Analyzing…' : 'Find Matches'}
-            </button>
-            {error && <span className="text-sm text-red-600">{error}</span>}
-          </div>
-        </form>
-      </section>
-      <AnimatePresence mode="wait">
-        {loading && <LoadingScreen key="loading" activeStep={activeStep} />}
-      </AnimatePresence>
-    </main>
+            <div className="flex items-center gap-3 pt-2">
+              <button disabled={loading} className="btn btn-primary" type="submit">
+                {loading ? 'Analyzing…' : 'Find Matches'}
+              </button>
+              {error && <span className="text-sm text-red-600">{error}</span>}
+            </div>
+          </form>
+        </section>
+        <AnimatePresence mode="wait">
+          {loading && <LoadingScreen key="loading" activeStep={activeStep} />}
+        </AnimatePresence>
+      </main>
+    </AuthGate>
   );
 }
 

@@ -1,3 +1,5 @@
+'use client';
+import { useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import CTA from '@/components/CTA';
 import StackedHighlights from '@/components/StackedHighlights';
@@ -10,10 +12,25 @@ const FLOW_STEPS = [
 ];
 
 export default function Page() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        setIsAuthenticated(Boolean(window.localStorage.getItem('tt-auth')));
+      } catch {
+        setIsAuthenticated(false);
+      }
+    };
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
+
   return (
     <main>
       <NavBar />
-      <CTA />
+      <CTA isAuthenticated={isAuthenticated} />
 
       <section className="relative -mt-6 mx-auto max-w-5xl px-4 pb-24 pt-16 md:pt-24">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white via-white/90 to-transparent" aria-hidden />
