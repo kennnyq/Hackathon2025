@@ -18,7 +18,6 @@ export type Preferences = {
   fuelType: 'Hybrid' | 'EV' | 'Fuel' | 'Other' | 'Any';
   condition: 'Excellent' | 'Good' | 'Fair' | 'Any' | string;
   notes: string;
-  apiKey?: string; // optional override if not in env
 };
 
 export type AnalyzeResponse = {

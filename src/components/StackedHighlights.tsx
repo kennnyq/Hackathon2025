@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 
 type HighlightCard = {
   title: string;
@@ -39,6 +40,15 @@ function hashString(value: string) {
   return Math.abs(hash);
 }
 
+const cardVariants = {
+  hidden: { opacity: 0, filter: 'blur(12px)' },
+  show: (index: number) => ({
+    opacity: 1,
+    filter: 'blur(0px)',
+    transition: { delay: 0.3 + index * 0.1, duration: 0.55, ease: 'easeOut' },
+  }),
+};
+
 export default function StackedHighlights({ className = '' }: { className?: string }) {
   const cards = useMemo(() => (
     HIGHLIGHTS.map((card, index) => {
@@ -52,19 +62,23 @@ export default function StackedHighlights({ className = '' }: { className?: stri
 
   return (
     <div className={`relative h-[320px] ${className}`}>
-      {cards.map(card => (
-        <article
+      {cards.map((card, index) => (
+        <motion.article
           key={card.title}
           className={`pointer-events-none select-none absolute inset-x-6 mx-auto rounded-3xl border ${card.border} bg-gradient-to-br ${card.gradient} p-6 shadow-2xl shadow-red-100/70`}
           style={{
             zIndex: card.z,
             transform: `translate(${card.xShift}px, ${card.yShift}px) rotate(${card.rotation}deg)`,
           }}
+          variants={cardVariants}
+          initial="hidden"
+          animate="show"
+          custom={index}
         >
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Feature</p>
           <h3 className="mt-3 text-2xl font-bold text-slate-900">{card.title}</h3>
           <p className="mt-2 text-slate-700 text-sm leading-relaxed">{card.description}</p>
-        </article>
+        </motion.article>
       ))}
     </div>
   );

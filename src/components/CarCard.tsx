@@ -1,9 +1,10 @@
 'use client';
 import { Car } from '@/lib/types';
 
-export default function CarCard({ car }: { car: Car }) {
+export default function CarCard({ car, className = '' }: { car: Car; className?: string }) {
+  const wrapperClass = ['card w-[320px]', className].filter(Boolean).join(' ');
   return (
-    <div className="card w-[320px]">
+    <div className={wrapperClass}>
       <div className="flex items-start justify-between">
         <h3 className="text-xl font-semibold">{car.Year} {car.Model}</h3>
         <span className="text-red-600 font-bold">${car.Price.toLocaleString()}</span>

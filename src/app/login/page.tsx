@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import NavBar from '@/components/NavBar';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
+      <NavBar />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
         <section className="flex-1">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
