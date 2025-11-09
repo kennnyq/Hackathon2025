@@ -2,19 +2,23 @@
 import NavBar from '@/components/NavBar';
 import { loadResults, loadResultsMeta, addLike } from '@/lib/likes';
 import { Car } from '@/lib/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, MotionProps } from 'framer-motion';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import CarCard from '@/components/CarCard';
-import AuthGate from '@/components/AuthGate';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 type SwipeMeta = { id: Car['Id'] | null; dir: 'left' | 'right' };
+const STACK_LIMIT = 3;
+const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
 
 export default function SwipePage() {
+  useRequireAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [index, setIndex] = useState(0);
   const [warning, setWarning] = useState<string | undefined>();
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
+  const [warningToast, setWarningToast] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +27,7 @@ export default function SwipePage() {
       setCars(loadResults());
       const meta = loadResultsMeta();
       setWarning(meta?.warning);
+      setWarningToast(meta?.warning ?? null);
     });
     return () => {
       cancelled = true;
@@ -55,25 +60,43 @@ export default function SwipePage() {
 
   if (!cars.length) {
     return (
-      <AuthGate>
-        <main>
-          <NavBar />
-          <section className="mx-auto max-w-3xl px-4 pt-12">
-            <div className="card">
-              <h1 className="text-2xl font-bold">No matches yet</h1>
-              <p className="text-slate-600 mt-2">Go to the Find page and submit your preferences.</p>
-              <div className="mt-4"><Link href="/find" className="btn btn-primary">Find cars</Link></div>
-            </div>
-          </section>
-        </main>
-      </AuthGate>
+      <main>
+        <NavBar />
+        <section className="mx-auto max-w-3xl px-4 pt-12">
+          <div className="card">
+            <h1 className="text-2xl font-bold">No matches yet</h1>
+            <p className="text-slate-600 mt-2">Go to the Find page and submit your preferences.</p>
+            <div className="mt-4"><Link href="/find" className="btn btn-primary">Find cars</Link></div>
+          </div>
+        </section>
+      </main>
     );
   }
 
   return (
-    <AuthGate>
-      <main>
+    <>
+      <motion.main
+        initial={{ opacity: 0, y: 24, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
         <NavBar />
+        <AnimatePresence>
+          {warningToast && (
+            <motion.div
+              key="warning-toast"
+              className="pointer-events-none fixed inset-x-0 top-24 z-30 flex justify-center px-4"
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="pointer-events-auto max-w-md rounded-2xl border border-amber-200 bg-white/95 px-4 py-3 text-sm font-medium text-amber-700 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+                {warningToast}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <section className="mx-auto max-w-3xl px-4 pt-8 pb-20">
           {warning && (
             <div className="card border-amber-200 bg-amber-50">
@@ -83,27 +106,13 @@ export default function SwipePage() {
           )}
 
           <div className="mt-6 flex items-center justify-center">
-            <AnimatePresence initial={false}>
-              {!isComplete && (
-                <motion.div
-                  key="deck-shell"
-                  className="relative rounded-[44px] border border-white/60 bg-white/90 p-6 shadow-[0_40px_90px_rgba(15,23,42,0.25)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl"
-                  initial={{ opacity: 0, scale: 0.96, y: 25 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.92, y: -35 }}
-                  transition={{ duration: 0.35, ease: 'easeInOut' }}
-                >
-                  <div className="pointer-events-none absolute inset-3 rounded-[38px] border border-slate-200/80 shadow-inner shadow-white/40" />
-                  <Deck
-                    cars={cars}
-                    index={index}
-                    onSwipe={onSwipe}
-                    swipeMeta={swipeMeta}
-                    resetSwipeMeta={() => setSwipeMeta({ id: null, dir: 'right' })}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <Deck
+              cars={cars}
+              index={index}
+              onSwipe={onSwipe}
+              swipeMeta={swipeMeta}
+              resetSwipeMeta={() => setSwipeMeta({ id: null, dir: 'right' })}
+            />
           </div>
           <AnimatePresence>
             {!isComplete && (
@@ -155,8 +164,8 @@ export default function SwipePage() {
             )}
           </AnimatePresence>
         </section>
-      </main>
-    </AuthGate>
+      </motion.main>
+    </>
   );
 }
 
@@ -173,7 +182,9 @@ function Deck({
   swipeMeta: SwipeMeta;
   resetSwipeMeta: () => void;
 }) {
-  const stack = cars.slice(index, index + 3);
+  const remaining = Math.max(cars.length - index, 0);
+  const visibleStackSize = Math.min(STACK_LIMIT, remaining);
+  const stack = cars.slice(index, index + visibleStackSize);
   if (!stack.length) return <div className="text-slate-500">No more cards</div>;
 
   return (
@@ -183,69 +194,150 @@ function Deck({
           const isTop = stackIndex === 0;
           const gradient = gradientForId(car.Id);
           const rotation = rotationForCard(car.Id, stackIndex);
-
           const globalPosition = index + stackIndex;
           const zIndex = cars.length - globalPosition;
           const exitDirection = swipeMeta.id === car.Id ? swipeMeta.dir : 'right';
+          const isExiting = swipeMeta.id === car.Id;
+
+          const initial = { opacity: 0, y: 32, scale: 1.04 };
+          const animateProps = {
+            opacity: 1,
+            x: 0,
+            y: stackIndex * 12,
+            scale: 1 - stackIndex * 0.025,
+          };
+          const exitProps: MotionProps['exit'] = isTop
+            ? {
+                x: exitDirection === 'right' ? 360 : -360,
+                opacity: 0,
+                transition: {
+                  x: { duration: 0.22, ease: 'easeInOut' },
+                  opacity: { delay: 0.08, duration: 0.12, ease: 'easeInOut' },
+                },
+              }
+            : {
+                opacity: 0,
+                scale: 0.92,
+                transition: { duration: 0.18, ease: 'easeInOut' },
+              };
+          const initialRotation = rotation - 4;
 
           return (
-            <motion.div
+            <DeckCard
               key={car.Id}
-              layout
-              className="absolute inset-0 flex justify-center"
-              style={{ zIndex, pointerEvents: isTop ? 'auto' : 'none' }}
-              drag={isTop ? 'x' : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.8}
-              onDragEnd={(e, info) => {
-                if (info.offset.x > 120) onSwipe('right');
-                else if (info.offset.x < -120) onSwipe('left');
-              }}
-              initial={{ opacity: 0, y: 30, scale: 0.92 }}
-              animate={{
-                opacity: 1,
-                y: stackIndex * 10,
-                scale: 1 - stackIndex * 0.02,
-                rotate: rotation,
-              }}
-              exit={
-                isTop
-                  ? {
-                      x: exitDirection === 'right' ? 420 : -420,
-                      rotate: exitDirection === 'right' ? 16 : -16,
-                      opacity: 0,
-                      transition: {
-                        x: { duration: 0.45, ease: 'easeInOut' },
-                        rotate: { duration: 0.45, ease: 'easeInOut' },
-                        opacity: { delay: 0.2, duration: 0.25, ease: 'easeInOut' },
-                      },
-                    }
-                  : {
-                      opacity: 0,
-                      scale: 0.9,
-                      transition: { duration: 0.2 },
-                    }
-              }
-              transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-            >
-              <CarCard
-                car={car}
-                className={[
-                  '!bg-gradient-to-br',
-                  gradient,
-                  '!border-transparent',
-                  isTop
-                    ? 'shadow-[0_25px_45px_rgba(244,63,94,0.25)]'
-                    : 'opacity-90 shadow-[0_20px_35px_rgba(15,23,42,0.12)]',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              />
-            </motion.div>
+              car={car}
+              gradient={gradient}
+              isTop={isTop}
+              isInteractive
+              initialProps={initial}
+              animateProps={animateProps}
+              exitProps={exitProps}
+              transitionProps={ENTER_TRANSITION}
+              zIndex={zIndex}
+              onSwipe={onSwipe}
+              initialRotation={initialRotation}
+              targetRotation={rotation}
+              exitDirection={exitDirection}
+              isExiting={isExiting && isTop}
+            />
           );
         })}
       </AnimatePresence>
     </div>
+  );
+}
+
+type DeckCardProps = {
+  car: Car;
+  gradient: string;
+  isTop: boolean;
+  isInteractive: boolean;
+  initialProps: MotionProps['initial'];
+  animateProps: MotionProps['animate'];
+  exitProps: MotionProps['exit'];
+  transitionProps: MotionProps['transition'];
+  zIndex: number;
+  onSwipe: (dir: 'left' | 'right') => void;
+  initialRotation: number;
+  targetRotation: number;
+  exitDirection: 'left' | 'right';
+  isExiting: boolean;
+};
+
+function DeckCard({
+  car,
+  gradient,
+  isTop,
+  isInteractive,
+  initialProps,
+  animateProps,
+  exitProps,
+  transitionProps,
+  zIndex,
+  onSwipe,
+  initialRotation,
+  targetRotation,
+  exitDirection,
+  isExiting,
+}: DeckCardProps) {
+  const dragTilt = useMotionValue<number>(0);
+  const baseRotation = useMotionValue<number>(initialRotation);
+  const combinedRotate = useTransform([baseRotation, dragTilt], ([base, drag]) => (base as number) + (drag as number));
+
+  useEffect(() => {
+    const target = isExiting ? targetRotation + (exitDirection === 'right' ? 22 : -22) : targetRotation;
+    const controls = animate(baseRotation, target, isExiting
+      ? { duration: 0.22, ease: 'easeInOut' }
+      : { type: 'spring', stiffness: 260, damping: 26 });
+    return () => controls.stop();
+  }, [baseRotation, targetRotation, exitDirection, isExiting]);
+
+  const resetDragTilt = useCallback(() => {
+    animate(dragTilt, 0, { type: 'spring', stiffness: 260, damping: 20 });
+  }, [dragTilt]);
+
+  return (
+    <motion.div
+      layout
+      className="absolute inset-0 flex justify-center"
+      style={{ zIndex, pointerEvents: isInteractive && isTop ? 'auto' : 'none', rotate: combinedRotate }}
+      drag={isInteractive && isTop ? 'x' : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.8}
+      onDrag={(e, info) => {
+        dragTilt.set(clamp(info.offset.x / 18, -18, 18));
+      }}
+      onDragEnd={(e, info) => {
+        const offsetX = info.offset.x;
+        if (offsetX > 120) {
+          onSwipe('right');
+          return;
+        }
+        if (offsetX < -120) {
+          onSwipe('left');
+          return;
+        }
+        resetDragTilt();
+      }}
+      initial={initialProps}
+      animate={animateProps}
+      exit={exitProps}
+      transition={transitionProps}
+    >
+      <CarCard
+        car={car}
+        className={[
+          'bg-linear-to-br!',
+          gradient,
+          'border-transparent!',
+          isTop
+            ? 'shadow-[0_25px_45px_rgba(244,63,94,0.25)]'
+            : 'opacity-90 shadow-[0_20px_35px_rgba(15,23,42,0.12)]',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      />
+    </motion.div>
   );
 }
 
@@ -274,4 +366,8 @@ function hashString(value: string) {
     hash |= 0;
   }
   return Math.abs(hash);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }

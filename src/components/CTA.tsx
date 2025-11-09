@@ -74,7 +74,10 @@ export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boo
           className="mt-4 text-balance text-5xl font-black tracking-tight md:text-6xl"
           variants={heroItem}
         >
-          Explore Toyotas with a calm co‑pilot
+          Find your{' '}
+          <motion.span className="hero-title-accent drop-shadow-[0_10px_35px_rgba(248,113,113,0.35)]">
+            perfect Toyota
+          </motion.span>
         </motion.h1>
 
         <motion.p

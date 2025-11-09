@@ -1,10 +1,11 @@
 'use client';
 import NavBar from '@/components/NavBar';
-import AuthGate from '@/components/AuthGate';
+import { useLoadingOverlay } from '@/components/LoadingOverlayProvider';
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Preferences, AnalyzeResponse } from '@/lib/types';
 import { saveResults } from '@/lib/likes';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const LOADING_STEPS = [
@@ -22,10 +23,12 @@ const CONDITION_OPTIONS: Preferences['used'][] = ['Any', 'New', 'Used'];
 const BODY_TYPE_OPTIONS = ['SUV', 'Sedan', 'Truck', 'Minivan', 'Hatchback', 'Wagon', 'Coupe'] as const;
 const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_ZIP = '75080';
 type SectionKey = 'price' | 'body' | 'efficiency';
 
 export default function FindPage() {
   const router = useRouter();
+  useRequireAuth();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +38,35 @@ export default function FindPage() {
     efficiency: false,
   });
   const sequenceControllerRef = useRef<AbortController | null>(null);
+  const overlayShouldPersistRef = useRef(false);
+  const { showOverlay, updateOverlayMessage, hideOverlay } = useLoadingOverlay();
+  const currentLoadingMessage = LOADING_STEPS[Math.min(activeStep, LOADING_STEPS.length - 1)];
 
   useEffect(() => () => {
     sequenceControllerRef.current?.abort();
   }, []);
+
+  const prevLoadingRef = useRef(false);
+  useEffect(() => {
+    if (loading && !prevLoadingRef.current) {
+      showOverlay(currentLoadingMessage);
+    } else if (!loading && prevLoadingRef.current) {
+      if (!overlayShouldPersistRef.current) {
+        hideOverlay();
+      }
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, showOverlay, hideOverlay, currentLoadingMessage]);
+
+  useEffect(() => {
+    if (!loading) return;
+    updateOverlayMessage(currentLoadingMessage);
+  }, [loading, currentLoadingMessage, updateOverlayMessage]);
+
+  useEffect(() => () => {
+    if (overlayShouldPersistRef.current) return;
+    hideOverlay();
+  }, [hideOverlay]);
 
   function beginSequence() {
     sequenceControllerRef.current?.abort();
@@ -79,6 +107,7 @@ export default function FindPage() {
     const bodyTypes = fd.getAll('bodyTypes').map(value => value.toString()) as Preferences['bodyTypes'];
     const fuelTypes = fd.getAll('fuelTypes').map(value => value.toString()) as Preferences['fuelTypes'];
     const prefs: Preferences = {
+      zipCode: parseZip(fd.get('zipCode')),
       priceMin: parseFormNumber(fd.get('priceMin')),
       priceMax: parseFormNumber(fd.get('priceMax')),
       used: (fd.get('used') as Preferences['used'] | null) ?? 'Any',
@@ -111,7 +140,20 @@ export default function FindPage() {
         sequencePromise,
         sleep(SUCCESS_DEMO_DELAY_MS),
       ]);
+      overlayShouldPersistRef.current = true;
+      setLoading(false);
       router.push('/swipe');
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => {
+          hideOverlay(() => {
+            overlayShouldPersistRef.current = false;
+          });
+        }, 150);
+      } else {
+        hideOverlay(() => {
+          overlayShouldPersistRef.current = false;
+        });
+      }
       shouldResetLoading = false;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
@@ -129,20 +171,19 @@ export default function FindPage() {
   }
 
   return (
-    <AuthGate>
-      <main>
-        <NavBar />
-        <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
-          <h1 className="text-3xl font-bold">Your preferences</h1>
-          <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-6">
-            <section className="card space-y-5">
-              <div className="space-y-4">
-                <PreferenceSection
-                  id="price"
-                  title="Price & condition"
-                  isOpen={openSections.price}
-                  onToggle={toggleSection}
-                >
+    <main>
+      <NavBar />
+      <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
+        <h1 className="text-3xl font-bold">Your preferences</h1>
+        <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-6">
+          <section className="card space-y-5">
+            <div className="space-y-4">
+              <PreferenceSection
+                id="price"
+                title="Price & condition"
+                isOpen={openSections.price}
+                onToggle={toggleSection}
+              >
                   <div className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
@@ -259,6 +300,21 @@ export default function FindPage() {
                         <input className="input" id="mpgMax" name="mpgMax" type="number" min={0} max={80} placeholder="45" />
                       </div>
                     </div>
+                    <div>
+                      <label className="label" htmlFor="zipCode">Your zip code</label>
+                      <div className="grid gap-2 md:grid-cols-[160px]">
+                        <input
+                          className="input md:max-w-xs"
+                          id="zipCode"
+                          name="zipCode"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="\\d{5}"
+                          placeholder={DEFAULT_ZIP}
+                          maxLength={5}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </PreferenceSection>
               </div>
@@ -273,70 +329,17 @@ export default function FindPage() {
                   placeholder="Give a large, spacious family car that would be good for roadtrips."
                 />
               </div>
-            </section>
+          </section>
 
-            <div className="flex flex-col items-center gap-2 text-center">
-              <button disabled={loading} className="btn btn-primary px-8" type="submit">
-                {loading ? 'Analyzing…' : 'Find Matches'}
-              </button>
-              {error && <span className="text-sm text-red-600">{error}</span>}
-            </div>
-          </form>
-        </section>
-        <AnimatePresence mode="wait">
-          {loading && <LoadingScreen key="loading" activeStep={activeStep} />}
-        </AnimatePresence>
-      </main>
-    </AuthGate>
-  );
-}
-
-function LoadingScreen({ activeStep }: { activeStep: number }) {
-  const message = LOADING_STEPS[activeStep];
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 bg-white/95 backdrop-blur-xl"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-    >
-      <div className="flex h-full flex-col items-center justify-center px-4">
-        <motion.div
-          className="w-full max-w-lg rounded-3xl border border-red-100 bg-white/85 p-7 shadow-[0_25px_65px_rgba(244,63,94,0.16)]"
-          initial={{ opacity: 0, y: 22, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -18, scale: 0.95 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-        >
-          <div className="flex flex-col items-center text-center">
-            <motion.div
-              className="h-14 w-14 rounded-full border-[3px] border-red-100 border-t-red-500"
-              aria-hidden="true"
-              animate={{ rotate: 360, scale: [1, 1.06, 1] }}
-              transition={{ repeat: Infinity, duration: 1.3, ease: [0.65, 0, 0.35, 1] }}
-            />
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.4em] text-red-500">Analyzing</p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900">Building your Toyota swipe deck…</h2>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <button disabled={loading} className="btn btn-primary px-8" type="submit">
+              {loading ? 'Analyzing…' : 'Find Matches'}
+            </button>
+            {error && <span className="text-sm text-red-600">{error}</span>}
           </div>
-          <div className="mt-6 w-full" aria-live="polite">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.p
-                key={message}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="text-base font-medium text-slate-400 text-center"
-              >
-                {message}
-              </motion.p>
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </div>
-    </motion.div>
+        </form>
+      </section>
+    </main>
   );
 }
 
@@ -427,4 +430,11 @@ function parseFormNumber(value: FormDataEntryValue | null) {
   if (typeof value === 'string' && value.trim() === '') return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function parseZip(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (/^\d{5}$/.test(trimmed)) return trimmed;
+  return null;
 }
