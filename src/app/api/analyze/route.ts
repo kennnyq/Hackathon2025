@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AnalyzeResponse, Car, Preferences } from '@/lib/types';
-import { filterCars, pickTopN } from '@/lib/util';
+import { filterCars, pickTopN, orderCarsForDisplay, deriveNoteConstraints, describeNoteConstraints } from '@/lib/util';
 import { GoogleGenAI } from '@google/genai';
 import { getCsvCars } from '@/data/csvCars.server';
 
@@ -11,10 +11,11 @@ export async function POST(req: Request) {
     const cars = getCsvCars();
     const filtered = filterCars(cars, prefs);
     const fallbackBase = filtered.length ? filtered : cars;
+    const noteConstraints = deriveNoteConstraints(prefs.notes);
 
     if (!key) {
       // Fallback: sample filtered (or entire dataset if empty), pick up to 10
-      const sampled = sampleRandom(fallbackBase, 10);
+      const sampled = orderCarsForDisplay(sampleRandom(fallbackBase, 10), prefs);
       const res: AnalyzeResponse = {
         cars: decorateCarsForClient(sampled, prefs),
         warning: 'Server missing GEMINI_API_KEY. Showing a randomized filtered selection instead.',
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     // With key: use new @google/genai client to choose the best up to 10 by ID
     const ai = new GoogleGenAI({ apiKey: key });
     const { promptCars, totalMatches } = getPromptDataset(filtered, cars, prefs);
-    const prompt = buildPrompt(prefs, promptCars, totalMatches);
+    const prompt = buildPrompt(prefs, promptCars, totalMatches, describeNoteConstraints(noteConstraints));
 
     let text = '';
     try {
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       text = response.text ?? '';
     } catch (error) {
       console.error('Gemini generateContent failed', error);
-      const chosen = pickTopN(fallbackBase, prefs, 10);
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
       return NextResponse.json({
         cars: decorateCarsForClient(chosen, prefs),
         warning: 'Gemini request failed. Using heuristic results.',
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
         descriptions = parsed.descriptions as Record<string, string>;
       }
     } catch {
-      const chosen = pickTopN(fallbackBase, prefs, 10);
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
       return NextResponse.json({
         cars: decorateCarsForClient(chosen, prefs),
         warning: 'Gemini response could not be parsed. Using heuristic results.',
@@ -70,9 +71,10 @@ export async function POST(req: Request) {
 
     // Safety: if Gemini returned nothing, fallback to heuristic top N
     const finalCars = selected.length ? selected.slice(0, 10) : pickTopN(fallbackBase, prefs, 10);
+    const orderedCars = orderCarsForDisplay(finalCars, prefs);
 
     const res: AnalyzeResponse = {
-      cars: decorateCarsForClient(finalCars, prefs, descriptions),
+      cars: decorateCarsForClient(orderedCars, prefs, descriptions),
       reasoning,
     };
     return NextResponse.json(res);
@@ -120,7 +122,7 @@ function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
   };
 }
 
-function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number) {
+function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, noteSummary: string) {
   const csv = carsToCsv(cars);
   const shown = Math.min(cars.length, PROMPT_ROW_LIMIT);
   const mileageText = prefs.maxMileage
@@ -131,6 +133,7 @@ function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number) {
     'You are a Toyota inventory matchmaker. Analyze the CSV data below and choose up to 10 listings that best satisfy the user preferences.',
     'Rankings should prioritize staying within budget, matching used/new preference, matching fuel type, respecting any mileage cap, closer dealership (string match), lower mileage, and newer model years.',
     mileageText,
+    `Derived note constraints: ${noteSummary}`,
     `User chat notes to reference when writing descriptions: ${notes}`,
     'User preferences (JSON):',
     JSON.stringify(prefs),
