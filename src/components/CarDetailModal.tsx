@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 
 import { Car } from '@/lib/types';
 import { formatCurrency, getCategory } from '@/lib/carDisplay';
+import { AprDealsLink, AprInfoIcon } from '@/components/AprInfo';
 
 type Props = {
   car: Car;
@@ -16,6 +17,7 @@ type Props = {
 export default function CarDetailModal({ car, closing = false, onRequestClose }: Props) {
   const headingId = `car-detail-modal-${car.Id}`;
   const currency = formatCurrency(car.Price);
+  const monthlyPayment = typeof car.MonthlyPayment === 'number' ? formatCurrency(car.MonthlyPayment) : null;
   const mpg = car.MPG || '—';
   const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : 'Seating TBD';
   const fuel = car['Fuel Type'] || car.FuelType || 'Fuel';
@@ -99,6 +101,15 @@ export default function CarDetailModal({ car, closing = false, onRequestClose }:
             </div>
             <h2 id={headingId} className="mt-3 text-3xl font-semibold text-slate-900">{car.Year} {car.Model}</h2>
             <p className="mt-1 text-sm text-slate-500">{car.Used ? 'Certified pre-owned listing' : 'Factory-new configuration'}</p>
+            {monthlyPayment && (
+              <div className="mt-4 space-y-1">
+                <p className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                  <span>Estimated {monthlyPayment}/mo</span>
+                  <AprInfoIcon />
+                </p>
+                <AprDealsLink />
+              </div>
+            )}
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <StatCard label="Price" value={currency} helper={car.Used ? 'Current offer' : 'Starting MSRP *'} />

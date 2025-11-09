@@ -45,7 +45,11 @@ const cardVariants = {
   show: (index: number) => ({
     opacity: 1,
     filter: 'blur(0px)',
-    transition: { delay: 0.3 + index * 0.1, duration: 0.55, ease: 'easeOut' },
+    transition: {
+      delay: 0.3 + index * 0.1,
+      duration: 0.55,
+      ease: 'easeOut' as const,
+    },
   }),
 };
 

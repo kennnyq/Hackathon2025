@@ -69,6 +69,7 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
   const mileage = Number.parseFloat(record.mileage);
   const year = Number.parseInt(record.year, 10);
   const distance = Number.parseFloat(record.distance_from_richardson_mi);
+  const monthlyPayment = Number.parseFloat(record.monthly_payment_7pct_72mo);
   const dealer = record.dealership_name?.trim();
   const conditionRaw = (record.condition || '').toLowerCase();
   const used = conditionRaw !== 'new';
@@ -81,6 +82,7 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     Id: id,
     Model: record.model?.trim() || 'Toyota',
     Price: Math.round(price),
+    MonthlyPayment: Number.isFinite(monthlyPayment) ? Number(monthlyPayment.toFixed(2)) : undefined,
     Used: used,
     Location: buildLocation(dealer, distance),
     'Fuel Type': fuelCategory,

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 const heroContainer = {
   hidden: {},
@@ -10,15 +10,23 @@ const heroContainer = {
 
 const heroItem = {
   hidden: { opacity: 0, y: 30 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
-};
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: 'easeOut' as const },
+  },
+} satisfies Variants;
 
 const chipVariants = {
   hidden: { opacity: 0, y: 18 },
   show: (index: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.45, delay: 0.45 + index * 0.08, ease: 'easeOut' },
+    transition: {
+      duration: 0.45,
+      delay: 0.45 + index * 0.08,
+      ease: 'easeOut' as const,
+    },
   }),
 };
 

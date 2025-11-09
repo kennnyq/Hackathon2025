@@ -535,7 +535,9 @@ function preferencesToUserFilter(prefs: Preferences): UserFilter {
   ]);
   const noteCategories = (noteConstraints.preferredCategories || [])
     .map(mapNoteCategoryToBodyType)
-    .filter((value): value is string => Boolean(value));
+    .filter(
+      (value): value is BodyStylePreference => Boolean(value),
+    );
   const vehicleCategories = dedupeStrings([
     ...prefs.bodyTypes,
     ...noteCategories,

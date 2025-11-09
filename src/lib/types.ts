@@ -2,6 +2,7 @@ export type Car = {
   Id: number;
   Model: string;
   Price: number;
+  MonthlyPayment?: number;
   Used: boolean;
   Location: string;
   'Fuel Type'?: string; // dataset uses this key

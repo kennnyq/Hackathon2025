@@ -27,6 +27,7 @@ export default function SwipeCard({ car, className = '' }: Props) {
   const type = car.Type || car.VehicleCategory || '—';
   const description = (car.FitDescription || '').trim();
   const price = typeof car.Price === 'number' ? currencyFormatter.format(car.Price) : '—';
+  const monthlyPayment = typeof car.MonthlyPayment === 'number' ? currencyFormatter.format(car.MonthlyPayment) : null;
 
   useEffect(() => {
     return () => {
@@ -94,6 +95,11 @@ export default function SwipeCard({ car, className = '' }: Props) {
           {mileage ? <span> • {mileage}</span> : null}
         </p>
         <p className="text-2xl font-bold text-slate-900">{price}</p>
+        {monthlyPayment && (
+          <p className="text-sm font-medium text-slate-700">
+            Est. {monthlyPayment}/mo · 7% APR · 72 mo*
+          </p>
+        )}
         {description && (
           <p
             className="text-sm leading-relaxed text-slate-800/90 overflow-hidden"

@@ -1,6 +1,7 @@
 'use client';
 import CarDetailModal from '@/components/CarDetailModal';
 import NavBar from '@/components/NavBar';
+import { AprDealsLink, AprInfoIcon } from '@/components/AprInfo';
 import { formatCurrency, getCategory } from '@/lib/carDisplay';
 import { getLikedCars, clearLikes } from '@/lib/likes';
 import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -616,6 +617,7 @@ function getFuelCategory(car: Car): FuelFilter {
 
 function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
   const currency = formatCurrency(car.Price);
+  const monthlyPayment = typeof car.MonthlyPayment === 'number' ? formatCurrency(car.MonthlyPayment) : null;
   const mpg = car.MPG || '—';
   const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : 'Seating TBD';
   const fuel = car['Fuel Type'] || car.FuelType || 'Fuel';
@@ -657,6 +659,15 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
         <div>
           <p className="text-3xl font-bold text-slate-900">{currency}</p>
           <p className="text-xs text-slate-500">{car.Used ? 'Pre-owned asking price' : 'Starting MSRP *'}</p>
+          {monthlyPayment && (
+            <div className="space-y-1">
+              <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <span>Est. {monthlyPayment}/mo</span>
+                <AprInfoIcon />
+              </p>
+              <AprDealsLink />
+            </div>
+          )}
         </div>
         <div className="text-right text-sm text-slate-500">
           <p className="font-semibold text-slate-900">{mpg}</p>
