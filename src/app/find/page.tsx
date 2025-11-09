@@ -1,29 +1,39 @@
 'use client';
 import NavBar from '@/components/NavBar';
 import AuthGate from '@/components/AuthGate';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Preferences, AnalyzeResponse } from '@/lib/types';
 import { saveResults } from '@/lib/likes';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const LOADING_STEPS = [
-  'Pinging Carvana for fresh Toyota arrivals…',
-  'Checking CarMax certified inventory in your radius…',
-  'Sweeping AutoTrader + dealer feeds for wild cards…',
-  'Analyzing your budget, fuel, and mileage preferences…',
+  'Locking in your price window + condition…',
+  'Sweeping dealer feeds for the body styles you tapped…',
+  'Applying year and mileage guardrails…',
+  'Matching MPG + fuel-type requests to each lead…',
   'Scoring Toyotas and packing the swipe deck…',
 ] as const;
 const MIN_LOADING_MS = 1200;
 const SUCCESS_DEMO_DELAY_MS = 850;
 const STEP_BASE_MS = 1400;
 const STEP_JITTER_MS = 350;
+const CONDITION_OPTIONS: Preferences['used'][] = ['Any', 'New', 'Used'];
+const BODY_TYPE_OPTIONS = ['SUV', 'Sedan', 'Truck', 'Minivan', 'Hatchback', 'Wagon', 'Coupe'] as const;
+const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
+const CURRENT_YEAR = new Date().getFullYear();
+type SectionKey = 'price' | 'body' | 'efficiency';
 
 export default function FindPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    price: true,
+    body: false,
+    efficiency: false,
+  });
   const sequenceControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => {
@@ -46,6 +56,10 @@ export default function FindPage() {
     return promise as Promise<void>;
   }
 
+  const toggleSection = (key: SectionKey) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   async function runLoadingSequence(signal: AbortSignal) {
     for (let i = 0; i < LOADING_STEPS.length; i += 1) {
       if (signal.aborted) throw createAbortError();
@@ -62,14 +76,23 @@ export default function FindPage() {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    const maxMileageRaw = Number(fd.get('maxMileage'));
+    const bodyTypes = fd.getAll('bodyTypes').map(value => value.toString()) as Preferences['bodyTypes'];
+    const fuelTypes = fd.getAll('fuelTypes').map(value => value.toString()) as Preferences['fuelTypes'];
     const prefs: Preferences = {
-      budget: Number(fd.get('budget') || 0),
+      priceMin: parseFormNumber(fd.get('priceMin')),
+      priceMax: parseFormNumber(fd.get('priceMax')),
       used: (fd.get('used') as Preferences['used'] | null) ?? 'Any',
-      location: String(fd.get('location') || ''),
-      fuelType: (fd.get('fuelType') as Preferences['fuelType'] | null) ?? 'Any',
-      maxMileage: Number.isFinite(maxMileageRaw) && maxMileageRaw > 0 ? maxMileageRaw : null,
-      notes: String(fd.get('notes') || ''),
+      bodyTypes,
+      yearMin: parseFormNumber(fd.get('yearMin')),
+      yearMax: parseFormNumber(fd.get('yearMax')),
+      mileageMin: parseFormNumber(fd.get('mileageMin')),
+      mileageMax: parseFormNumber(fd.get('mileageMax')),
+      seatsMin: parseFormNumber(fd.get('seatsMin')),
+      seatsMax: parseFormNumber(fd.get('seatsMax')),
+      fuelTypes,
+      mpgMin: parseFormNumber(fd.get('mpgMin')),
+      mpgMax: parseFormNumber(fd.get('mpgMax')),
+      notes: String(fd.get('notes') || '').trim(),
     };
     setLoading(true);
     const sequencePromise = beginSequence();
@@ -111,45 +134,149 @@ export default function FindPage() {
         <NavBar />
         <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
           <h1 className="text-3xl font-bold">Your preferences</h1>
-          <form onSubmit={onSubmit} className="mt-6 grid gap-4 card">
-            <div>
-              <label className="label" htmlFor="budget">Budget (USD)</label>
-              <input className="input" id="budget" name="budget" type="number" min={0} placeholder="30000" required />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="label" htmlFor="used">New / Used</label>
-                <select className="select" id="used" name="used" defaultValue="Any">
-                  <option>Any</option>
-                  <option>New</option>
-                  <option>Used</option>
-                </select>
+          <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-6">
+            <section className="card space-y-5">
+              <div className="space-y-4">
+                <PreferenceSection
+                  id="price"
+                  title="Price & condition"
+                  isOpen={openSections.price}
+                  onToggle={toggleSection}
+                >
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor="priceMin">Price from</label>
+                        <div className="relative">
+                          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">$</span>
+                          <input className="input pl-8" id="priceMin" name="priceMin" type="number" min={0} step={1000} placeholder="30000" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="priceMax">Price to</label>
+                        <div className="relative">
+                          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">$</span>
+                          <input className="input pl-8" id="priceMax" name="priceMax" type="number" min={0} step={1000} placeholder="50000" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="label mb-2">Condition</p>
+                      <div role="group" aria-label="Condition options" className="flex flex-wrap gap-2">
+                        {CONDITION_OPTIONS.map(option => (
+                          <label key={option} className="cursor-pointer">
+                            <input className="sr-only peer" type="radio" name="used" value={option} defaultChecked={option === 'Any'} />
+                            <span className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                              {option}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </PreferenceSection>
+
+                <PreferenceSection
+                  id="body"
+                  title="Body style, year & seating"
+                  isOpen={openSections.body}
+                  onToggle={toggleSection}
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <p className="label mb-2">Body type</p>
+                      <div role="group" aria-label="Body type options" className="flex flex-wrap gap-2">
+                        {BODY_TYPE_OPTIONS.map(type => (
+                          <label key={type} className="cursor-pointer">
+                            <input className="sr-only peer" type="checkbox" name="bodyTypes" value={type} />
+                            <span className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                              {type}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor="yearMin">Year from</label>
+                        <input className="input" id="yearMin" name="yearMin" type="number" min={2008} max={CURRENT_YEAR} placeholder="2018" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="yearMax">Year to</label>
+                        <input className="input" id="yearMax" name="yearMax" type="number" min={2008} max={CURRENT_YEAR} placeholder={CURRENT_YEAR.toString()} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor="seatsMin">Seats from</label>
+                        <input className="input" id="seatsMin" name="seatsMin" type="number" min={2} max={9} placeholder="5" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="seatsMax">Seats to</label>
+                        <input className="input" id="seatsMax" name="seatsMax" type="number" min={2} max={9} placeholder="8" />
+                      </div>
+                    </div>
+                  </div>
+                </PreferenceSection>
+
+                <PreferenceSection
+                  id="efficiency"
+                  title="Mileage, fuel & MPG"
+                  isOpen={openSections.efficiency}
+                  onToggle={toggleSection}
+                >
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor="mileageMin">Mileage from</label>
+                        <input className="input" id="mileageMin" name="mileageMin" type="number" min={0} step={5000} placeholder="15000" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="mileageMax">Mileage to</label>
+                        <input className="input" id="mileageMax" name="mileageMax" type="number" min={0} step={5000} placeholder="60000" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="label mb-2">Fuel type</p>
+                      <div role="group" aria-label="Fuel type options" className="flex flex-wrap gap-2">
+                        {FUEL_TYPE_OPTIONS.map(type => (
+                          <label key={type} className="cursor-pointer">
+                            <input className="sr-only peer" type="checkbox" name="fuelTypes" value={type} />
+                            <span className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                              {type}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor="mpgMin">MPG from</label>
+                        <input className="input" id="mpgMin" name="mpgMin" type="number" min={0} max={80} placeholder="30" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="mpgMax">MPG to</label>
+                        <input className="input" id="mpgMax" name="mpgMax" type="number" min={0} max={80} placeholder="45" />
+                      </div>
+                    </div>
+                  </div>
+                </PreferenceSection>
               </div>
+
               <div>
-                <label className="label" htmlFor="fuelType">Fuel Type</label>
-                <select className="select" id="fuelType" name="fuelType" defaultValue="Any">
-                  <option>Any</option>
-                  <option>Hybrid</option>
-                  <option>EV</option>
-                  <option>Fuel</option>
-                  <option>Other</option>
-                </select>
+                <label className="label" htmlFor="notes">What else should we know?</label>
+                <textarea
+                  className="textarea"
+                  id="notes"
+                  name="notes"
+                  rows={4}
+                  placeholder="Give a large, spacious family car that would be good for roadtrips."
+                />
               </div>
-              <div>
-                <label className="label" htmlFor="maxMileage">Max Mileage</label>
-                <input className="input" id="maxMileage" name="maxMileage" type="number" min={0} step={5000} placeholder="60000" />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="location">Location</label>
-              <input className="input" id="location" name="location" placeholder="Dallas, TX" />
-            </div>
-            <div>
-              <label className="label" htmlFor="notes">Additional details</label>
-              <textarea className="textarea" id="notes" name="notes" rows={4} placeholder="Must fit 2 car seats, highway commute, AWD preferred..." />
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <button disabled={loading} className="btn btn-primary" type="submit">
+            </section>
+
+            <div className="flex flex-col items-center gap-2 text-center">
+              <button disabled={loading} className="btn btn-primary px-8" type="submit">
                 {loading ? 'Analyzing…' : 'Find Matches'}
               </button>
               {error && <span className="text-sm text-red-600">{error}</span>}
@@ -213,6 +340,57 @@ function LoadingScreen({ activeStep }: { activeStep: number }) {
   );
 }
 
+type PreferenceSectionProps = {
+  id: SectionKey;
+  title: string;
+  isOpen: boolean;
+  onToggle: (key: SectionKey) => void;
+  children: ReactNode;
+};
+
+function PreferenceSection({ id, title, isOpen, onToggle, children }: PreferenceSectionProps) {
+  const contentId = `${id}-content`;
+  return (
+    <div className="w-full rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-4 shadow-sm">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-6 text-left"
+        onClick={() => onToggle(id)}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+      >
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            id={contentId}
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function sleep(ms: number, signal?: AbortSignal) {
   if (!signal) {
     return new Promise<void>(resolve => setTimeout(resolve, ms));
@@ -242,4 +420,11 @@ function createAbortError() {
   const error = new Error('Aborted');
   error.name = 'AbortError';
   return error;
+}
+
+function parseFormNumber(value: FormDataEntryValue | null) {
+  if (value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
 }

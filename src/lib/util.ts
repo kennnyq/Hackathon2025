@@ -6,46 +6,142 @@ type NoteConstraints = {
   minSeating?: number;
   preferredCategories?: string[];
   maxMileage?: number;
-  preferredFuel?: 'Hybrid' | 'EV' | 'Fuel' | 'Other';
+  preferredFuel?: 'Hybrid' | 'Electric' | 'Gas' | 'Other';
 };
 
 export function normalizeFuel(car: Car) {
   const raw = (car.FuelType || car["Fuel Type"] || '').toLowerCase();
   if (!raw) return '';
   if (raw.includes('hybrid')) return 'hybrid';
-  if (raw.includes('ev') || raw.includes('electric')) return 'ev';
-  if (raw.includes('hydrogen')) return 'other';
-  if (raw.includes('fuel') || raw.includes('gasoline') || raw.includes('gas') || raw.includes('diesel')) return 'fuel';
-  return raw;
+  if (raw.includes('ev') || raw.includes('electric')) return 'electric';
+  if (raw.includes('diesel') || raw.includes('gasoline') || raw.includes('gas') || raw.includes('fuel') || raw.includes('petrol')) return 'gas';
+  if (raw.includes('hydrogen') || raw.includes('plug-in')) return 'other';
+  return raw.split(' ')[0] || 'gas';
 }
 
 export function filterCars(cars: Car[], prefs: Preferences): Car[] {
   const noteConstraints = deriveNoteConstraints(prefs.notes);
+  const priceMin = toNumber(prefs.priceMin);
+  const priceMax = toNumber(prefs.priceMax);
+  const yearMin = toNumber(prefs.yearMin);
+  const yearMax = toNumber(prefs.yearMax);
+  const mileageMin = toNumber(prefs.mileageMin);
+  const mileageMax = toNumber(prefs.mileageMax);
+  const seatsMin = toNumber(prefs.seatsMin);
+  const seatsMax = toNumber(prefs.seatsMax);
+  const mpgMin = toNumber(prefs.mpgMin);
+  const mpgMax = toNumber(prefs.mpgMax);
+  const bodyTypes = (prefs.bodyTypes || []).map(b => b.toLowerCase());
+  const fuelTypes = (prefs.fuelTypes || []).map(f => f.toLowerCase());
+
   return cars.filter(c => {
     const fuel = normalizeFuel(c);
+    const carBody = (c.VehicleCategory || c.Type || '').toLowerCase();
+    const mileageValue = typeof c.Mileage === 'number' ? c.Mileage : null;
+    const mpg = extractAverageMpg(c.MPG);
+    const seatsValue = typeof c.Seating === 'number' ? c.Seating : null;
+
     const usedOk = prefs.used === 'Any' || (prefs.used === 'Used' ? c.Used : !c.Used);
-    const fuelOk = prefs.fuelType === 'Any' || fuel.startsWith(prefs.fuelType.toLowerCase());
-    const priceOk = !prefs.budget || c.Price <= prefs.budget * 1.1; // small cushion
-    const mileageOk = !prefs.maxMileage || typeof c.Mileage !== 'number' || c.Mileage <= prefs.maxMileage;
-    const locOk = !prefs.location || c.Location.toLowerCase().includes(prefs.location.toLowerCase());
+    const fuelOk = !fuelTypes.length || (fuel && fuelTypes.includes(fuel));
+    const priceOk =
+      (priceMin == null || c.Price >= priceMin) &&
+      (priceMax == null || c.Price <= priceMax);
+    const mileageOk =
+      (mileageMin == null || mileageValue === null || mileageValue >= mileageMin) &&
+      (mileageMax == null || mileageValue === null || mileageValue <= mileageMax);
+    const bodyOk = !bodyTypes.length || bodyTypes.some(type => carBody.includes(type));
+    const yearOk =
+      (yearMin == null || c.Year >= yearMin) &&
+      (yearMax == null || c.Year <= yearMax);
+    const seatsOk =
+      (seatsMin == null || seatsValue === null || seatsValue >= seatsMin) &&
+      (seatsMax == null || seatsValue === null || seatsValue <= seatsMax);
+    const mpgOk =
+      (mpgMin == null || mpg === null || mpg >= mpgMin) &&
+      (mpgMax == null || mpg === null || mpg <= mpgMax);
     const notesOk = matchesNoteConstraints(c, noteConstraints);
-    return usedOk && fuelOk && priceOk && mileageOk && locOk && notesOk;
+    return usedOk && fuelOk && priceOk && mileageOk && bodyOk && yearOk && seatsOk && mpgOk && notesOk;
   });
 }
 
 export function scoreCar(c: Car, prefs: Preferences): number {
   const noteConstraints = deriveNoteConstraints(prefs.notes);
-  const pricePenalty = prefs.budget ? Math.max(0, c.Price - prefs.budget) : 0;
-  const preferredMileage = typeof prefs.maxMileage === 'number' && prefs.maxMileage > 0 ? prefs.maxMileage : null;
-  const mileagePenalty = preferredMileage && typeof c.Mileage === 'number'
-    ? Math.max(0, c.Mileage - preferredMileage) * 0.05
+  const priceMax = toNumber(prefs.priceMax);
+  const priceMin = toNumber(prefs.priceMin);
+  const mileageMax = toNumber(prefs.mileageMax);
+  const mileageMin = toNumber(prefs.mileageMin);
+  const yearMax = toNumber(prefs.yearMax);
+  const yearMin = toNumber(prefs.yearMin);
+  const seatsMax = toNumber(prefs.seatsMax);
+  const seatsMin = toNumber(prefs.seatsMin);
+  const mpgMin = toNumber(prefs.mpgMin);
+  const mpgMax = toNumber(prefs.mpgMax);
+  const mileageValue = typeof c.Mileage === 'number' ? c.Mileage : null;
+  const mpgValue = extractAverageMpg(c.MPG);
+  const seatsValue = typeof c.Seating === 'number' ? c.Seating : null;
+
+  const targetPrice = midpoint(priceMin, priceMax);
+  const pricePenalty = priceMax ? Math.max(0, c.Price - priceMax) * 0.4 : 0;
+  const priceFloorPenalty = priceMin ? Math.max(0, priceMin - c.Price) * 0.25 : 0;
+  const priceAffinity = targetPrice
+    ? Math.max(0, 1 - Math.abs(c.Price - targetPrice) / Math.max(targetPrice, 1)) * 2200
     : 0;
-  const ageBonus = Math.max(0, c.Year - 2015) * 100; // newer is better
-  const budgetProximity = prefs.budget
-    ? Math.max(0, 1 - Math.abs(c.Price - prefs.budget) / Math.max(prefs.budget, 1)) * 1500
+
+  const mileagePenalty = mileageMax && mileageValue !== null
+    ? Math.max(0, mileageValue - mileageMax) * 0.04
     : 0;
+  const mileageFloorPenalty = mileageMin && mileageValue !== null
+    ? Math.max(0, mileageMin - mileageValue) * 0.02
+    : 0;
+  const mileageBonus = mileageMax && mileageValue !== null
+    ? Math.max(0, mileageMax - mileageValue) * 0.015
+    : 0;
+
+  const recencyTarget = yearMax ?? new Date().getFullYear();
+  const recencyFloor = yearMin ?? 2015;
+  const ageBonus = Math.max(0, c.Year - recencyFloor) * 85;
+  const yearCeilingPenalty = yearMax ? Math.max(0, c.Year - yearMax) * 60 : 0;
+  const yearFloorPenalty = yearMin ? Math.max(0, yearMin - c.Year) * 140 : 0;
+  const recencyBonus = Math.max(0, c.Year - (recencyTarget - 2)) * 50;
+
+  const mpgBonus = mpgMin && mpgValue
+    ? Math.max(0, mpgValue - mpgMin) * 70
+    : 0;
+  const mpgCeilingPenalty = mpgMax && mpgValue
+    ? Math.max(0, mpgValue - mpgMax) * 25
+    : 0;
+
+  const seatingScore = computeSeatingScore(seatsValue, seatsMin, seatsMax);
+
+  const bodyScore = computeBodyMatchScore(c, prefs.bodyTypes);
+  const fuelScore = computeFuelMatchScore(c, prefs.fuelTypes);
+  const usedScore = prefs.used === 'Any'
+    ? 0
+    : (prefs.used === 'Used'
+      ? (c.Used ? 450 : -450)
+      : (!c.Used ? 450 : -450));
+
   const noteScore = noteMatchScore(c, noteConstraints);
-  return -pricePenalty - mileagePenalty + ageBonus + budgetProximity + noteScore;
+
+  return (
+    priceAffinity
+    + mileageBonus
+    + ageBonus
+    + recencyBonus
+    + mpgBonus
+    + seatingScore
+    + bodyScore
+    + fuelScore
+    + usedScore
+    + noteScore
+    - pricePenalty
+    - priceFloorPenalty
+    - mileagePenalty
+    - mileageFloorPenalty
+    - yearCeilingPenalty
+    - yearFloorPenalty
+    - mpgCeilingPenalty
+  );
 }
 
 export function pickTopN(cars: Car[], prefs: Preferences, n = 10): Car[] {
@@ -100,8 +196,8 @@ export function deriveNoteConstraints(notes: string | undefined | null): NoteCon
     constraints.maxMileage = 60000;
   }
   if (/hybrid/.test(text)) constraints.preferredFuel = 'Hybrid';
-  else if (/(electric|ev\b)/.test(text)) constraints.preferredFuel = 'EV';
-  else if (/diesel|gasoline|gas/.test(text)) constraints.preferredFuel = 'Fuel';
+  else if (/(electric|ev\b)/.test(text)) constraints.preferredFuel = 'Electric';
+  else if (/diesel|gasoline|gas/.test(text)) constraints.preferredFuel = 'Gas';
   return constraints;
 }
 
@@ -133,8 +229,14 @@ function matchesNoteConstraints(car: Car, constraints: NoteConstraints) {
     if (!matches) return false;
   }
   if (constraints.preferredFuel) {
-    const fuel = (car['Fuel Type'] || car.FuelType || '').toLowerCase();
-    if (!fuel.startsWith(constraints.preferredFuel.toLowerCase())) return false;
+    const normalizedFuel = normalizeFuel(car);
+    const desired = constraints.preferredFuel.toLowerCase();
+    if (!normalizedFuel) return false;
+    if (desired === 'other') {
+      if (normalizedFuel === 'gas' || normalizedFuel === 'hybrid' || normalizedFuel === 'electric') return false;
+    } else if (normalizedFuel !== desired) {
+      return false;
+    }
   }
   return true;
 }
@@ -160,8 +262,12 @@ function noteMatchScore(car: Car, constraints: NoteConstraints) {
     if (constraints.preferredCategories.some(cat => category.includes(cat))) score += 200;
   }
   if (constraints.preferredFuel) {
-    const fuel = (car['Fuel Type'] || car.FuelType || '').toLowerCase();
-    if (fuel.startsWith(constraints.preferredFuel.toLowerCase())) score += 150;
+    const normalizedFuel = normalizeFuel(car);
+    const desired = constraints.preferredFuel.toLowerCase();
+    const fuelMatches = desired === 'other'
+      ? Boolean(normalizedFuel && normalizedFuel !== 'gas' && normalizedFuel !== 'hybrid' && normalizedFuel !== 'electric')
+      : normalizedFuel === desired;
+    if (fuelMatches) score += 180;
   }
   return score;
 }
@@ -177,4 +283,45 @@ function extractAverageMpg(mpgString?: string) {
     if (Number.isFinite(second)) return (first + second) / 2;
   }
   return first;
+}
+
+function computeBodyMatchScore(car: Car, bodyTypes: Preferences['bodyTypes']) {
+  if (!bodyTypes?.length) return 0;
+  const body = (car.VehicleCategory || car.Type || '').toLowerCase();
+  if (!body) return -120;
+  const matches = bodyTypes.some(type => body.includes(type.toLowerCase()));
+  return matches ? 320 : -180;
+}
+
+function computeFuelMatchScore(car: Car, fuelTypes: Preferences['fuelTypes']) {
+  if (!fuelTypes?.length) return 0;
+  const normalizedFuel = normalizeFuel(car) || 'gas';
+  const matches = fuelTypes.some(fuel => fuel.toLowerCase() === normalizedFuel);
+  return matches ? 260 : -160;
+}
+
+function computeSeatingScore(value: number | null, seatsMin?: number | null, seatsMax?: number | null) {
+  if (seatsMin == null && seatsMax == null) return 0;
+  if (value === null) return -60;
+  let score = 0;
+  if (seatsMin != null) {
+    score += (value - seatsMin) * 90;
+  }
+  if (seatsMax != null && value > seatsMax) {
+    score -= (value - seatsMax) * 75;
+  }
+  return score;
+}
+
+function toNumber(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function midpoint(min?: number | null, max?: number | null) {
+  const minVal = toNumber(min);
+  const maxVal = toNumber(max);
+  if (minVal != null && maxVal != null) return (minVal + maxVal) / 2;
+  if (maxVal != null) return maxVal * 0.9;
+  if (minVal != null) return minVal * 1.1;
+  return null;
 }

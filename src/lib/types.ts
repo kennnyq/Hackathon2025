@@ -24,12 +24,32 @@ export type Car = {
   VehicleCategory?: 'Cars' | 'SUVs' | 'Trucks' | 'Minivan' | 'Crossovers' | 'Other' | string;
 };
 
+export type FuelPreference = 'Gas' | 'Hybrid' | 'Electric';
+export type BodyStylePreference =
+  | 'Sedan'
+  | 'SUV'
+  | 'Truck'
+  | 'Crossover'
+  | 'Minivan'
+  | 'Hatchback'
+  | 'Wagon'
+  | 'Coupe'
+  | 'Convertible';
+
 export type Preferences = {
-  budget: number;
+  priceMin?: number | null;
+  priceMax?: number | null;
   used: 'New' | 'Used' | 'Any';
-  location: string;
-  fuelType: 'Hybrid' | 'EV' | 'Fuel' | 'Other' | 'Any';
-  maxMileage?: number | null;
+  bodyTypes: BodyStylePreference[];
+  yearMin?: number | null;
+  yearMax?: number | null;
+  mileageMin?: number | null;
+  mileageMax?: number | null;
+  seatsMin?: number | null;
+  seatsMax?: number | null;
+  fuelTypes: FuelPreference[];
+  mpgMin?: number | null;
+  mpgMax?: number | null;
   notes: string;
 };
 

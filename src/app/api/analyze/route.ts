@@ -125,14 +125,12 @@ function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
 function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, noteSummary: string) {
   const csv = carsToCsv(cars);
   const shown = Math.min(cars.length, PROMPT_ROW_LIMIT);
-  const mileageText = prefs.maxMileage
-    ? `Keep mileage at or below ${prefs.maxMileage} miles whenever possible.`
-    : 'When mileage preferences are unspecified, still favor lower mileage.';
+  const guardrails = formatGuardrailLines(prefs);
   const notes = prefs.notes?.trim() ? prefs.notes.trim() : 'No additional notes provided.';
   return [
     'You are a Toyota inventory matchmaker. Analyze the CSV data below and choose up to 10 listings that best satisfy the user preferences.',
-    'Rankings should prioritize staying within budget, matching used/new preference, matching fuel type, respecting any mileage cap, closer dealership (string match), lower mileage, and newer model years.',
-    mileageText,
+    'Respect these structured guardrails before applying your own desirability ranking:',
+    guardrails,
     `Derived note constraints: ${noteSummary}`,
     `User chat notes to reference when writing descriptions: ${notes}`,
     'User preferences (JSON):',
@@ -143,6 +141,66 @@ function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, note
     'CSV:',
     csv,
   ].join('\n');
+}
+
+function formatGuardrailLines(prefs: Preferences) {
+  const lines: string[] = [];
+  const priceLine = formatPriceGuardrail(prefs.priceMin, prefs.priceMax);
+  if (priceLine) lines.push(`• ${priceLine}`);
+  if (prefs.used !== 'Any') lines.push(`• Condition: ${prefs.used} inventory only`);
+  if (prefs.bodyTypes.length) lines.push(`• Body styles prioritized: ${prefs.bodyTypes.join(', ')}`);
+  const yearLine = formatRangeText('Model years', prefs.yearMin, prefs.yearMax);
+  if (yearLine) lines.push(`• ${yearLine}`);
+  const mileageLine = formatRangeText('Mileage', prefs.mileageMin, prefs.mileageMax, 'miles');
+  if (mileageLine) lines.push(`• ${mileageLine}`);
+  const seatingLine = formatRangeText('Seating', prefs.seatsMin, prefs.seatsMax, 'passengers');
+  if (seatingLine) lines.push(`• ${seatingLine}`);
+  if (prefs.fuelTypes.length) lines.push(`• Fuel preference: ${prefs.fuelTypes.join(', ')}`);
+  const mpgLine = formatRangeText('MPG target', prefs.mpgMin, prefs.mpgMax);
+  if (mpgLine) lines.push(`• ${mpgLine}`);
+  return lines.length
+    ? lines.join('\n')
+    : '• No strict guardrails were provided beyond overall Toyota desirability.';
+}
+
+function formatPriceGuardrail(min?: number | null, max?: number | null) {
+  const minText = formatUsd(min);
+  const maxText = formatUsd(max);
+  if (minText && maxText) return `Price window: $${minText} - $${maxText}`;
+  if (maxText) return `Price cap: at or below $${maxText}`;
+  if (minText) return `Price floor: at or above $${minText}`;
+  return '';
+}
+
+function formatRangeText(label: string, min?: number | null, max?: number | null, unit?: string) {
+  const minHas = hasValue(min);
+  const maxHas = hasValue(max);
+  if (!minHas && !maxHas) return '';
+  const unitSuffix = unit ? ` ${unit}` : '';
+  if (minHas && maxHas) return `${label} between ${formatNumber(min!)} and ${formatNumber(max!)}${unitSuffix}`;
+  if (minHas) return `${label} at or above ${formatNumber(min!)}${unitSuffix}`;
+  return `${label} at or below ${formatNumber(max!)}${unitSuffix}`;
+}
+
+function formatUsd(value?: number | null) {
+  return hasValue(value) ? formatNumber(value!) : '';
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function hasValue(value?: number | null): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function describePriceFragment(prefs: Preferences) {
+  const minText = formatUsd(prefs.priceMin);
+  const maxText = formatUsd(prefs.priceMax);
+  if (minText && maxText) return `within your $${minText}-$${maxText} window`;
+  if (maxText) return `under your $${maxText} cap`;
+  if (minText) return `above your $${minText} floor`;
+  return '';
 }
 
 function carsToCsv(cars: Car[]) {
@@ -219,6 +277,7 @@ function buildFallbackDescription(car: Car, prefs: Preferences, provided?: strin
     : 'dealer-reported mileage that will need confirming';
   const fuel = car['Fuel Type'] || car.FuelType || 'versatile fuel setup';
   const dealer = car.Dealer ? ` at ${car.Dealer}` : '';
-  const budgetLine = prefs.budget ? ` It stays near your $${prefs.budget.toLocaleString()} target.` : '';
+  const priceFragment = describePriceFragment(prefs);
+  const budgetLine = priceFragment ? ` It stays ${priceFragment}.` : '';
   return `${intro} the ${car.Year} ${car.Model}${dealer} delivers ${mileage}, ${fuel.toLowerCase()} efficiency, and daily comfort that aligns with your priorities.${budgetLine}`;
 }
