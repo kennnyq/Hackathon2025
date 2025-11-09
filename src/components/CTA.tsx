@@ -23,15 +23,24 @@ const chipVariants = {
 };
 
 const quickHits = [
-  'Live market data',
-  'Gemini-ranked deck',
-  'Tap to export likes',
+  'Share a few must-haves',
+  'Let AI curate the list',
+  'Save Toyotas you love',
 ];
 
-const stats = [
-  { label: 'Active seekers', value: '3.4k+' },
-  { label: 'Avg match time', value: '14s' },
-  { label: 'Swipe delight', value: '4.9 / 5' },
+const reassuranceCards = [
+  {
+    title: 'Guided onboarding',
+    body: 'Answer conversational prompts that translate your lifestyle into the right mix of models.',
+  },
+  {
+    title: 'Context with every card',
+    body: 'See price, seating, fuel, and “why it fits” copy so each recommendation feels human.',
+  },
+  {
+    title: 'Return anytime',
+    body: 'Liked lists persist, so you can pause, revisit, or share when the timing feels right.',
+  },
 ];
 
 export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
@@ -58,24 +67,21 @@ export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boo
           className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500/80"
           variants={heroItem}
         >
-          Toyota matchmaking
+          Welcome to ToyotaTinder
         </motion.p>
 
         <motion.h1
           className="mt-4 text-balance text-5xl font-black tracking-tight md:text-6xl"
           variants={heroItem}
         >
-          Find your{' '}
-          <motion.span className="hero-title-accent drop-shadow-[0_10px_35px_rgba(248,113,113,0.35)]">
-            perfect Toyota
-          </motion.span>
+          Explore Toyotas with a calm co‑pilot
         </motion.h1>
 
         <motion.p
           className="mx-auto mt-4 max-w-2xl text-lg text-slate-600"
           variants={heroItem}
         >
-          Answer a few quick questions, let AI do the sorting, and swipe through a curated deck of Toyotas that updates with the market.
+          Share what matters—budget, family, weekend plans—and let our gentle AI guide surface Toyotas that feel thoughtfully chosen just for you.
         </motion.p>
 
         <motion.div
@@ -108,23 +114,23 @@ export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boo
           ))}
         </motion.ul>
 
-        <motion.dl
+        <motion.div
           className="mt-10 grid gap-4 text-left md:grid-cols-3"
           variants={heroItem}
         >
-          {stats.map(stat => (
-            <motion.div
-              key={stat.label}
-              className="rounded-2xl border border-white/50 bg-white/70 p-5 text-center shadow-[0_15px_45px_rgba(15,23,42,0.08)] backdrop-blur"
-              whileHover={{ scale: 1.02 }}
+          {reassuranceCards.map(card => (
+            <motion.article
+              key={card.title}
+              className="rounded-2xl border border-white/60 bg-white/75 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur"
+              whileHover={{ translateY: -4 }}
             >
-              <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                {stat.label}
-              </dt>
-              <dd className="mt-2 text-2xl font-bold text-slate-900">{stat.value}</dd>
-            </motion.div>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.25em] text-red-500/80">
+                {card.title}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">{card.body}</p>
+            </motion.article>
           ))}
-        </motion.dl>
+        </motion.div>
       </motion.div>
     </section>
   );
