@@ -34,7 +34,11 @@ const stats = [
   { label: 'Swipe delight', value: '4.9 / 5' },
 ];
 
-export default function CTA() {
+export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+  const primaryHref = isAuthenticated ? '/find' : '/signup?next=%2Ffind';
+  const secondaryHref = isAuthenticated ? '/liked' : '/login?next=%2Ffind';
+  const secondaryLabel = isAuthenticated ? 'View Liked' : 'Log In';
+
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-rose-100 via-transparent to-transparent" aria-hidden />
@@ -78,11 +82,11 @@ export default function CTA() {
           className="mt-8 flex items-center justify-center gap-4"
           variants={heroItem}
         >
-          <Link href="/find" className="btn btn-primary shadow-[0_20px_45px_rgba(239,68,68,0.35)]">
+          <Link href={primaryHref} className="btn btn-primary shadow-[0_20px_45px_rgba(239,68,68,0.35)]">
             Start Matching
           </Link>
-          <Link href="/liked" className="btn btn-outline backdrop-blur-sm bg-white/70">
-            View Liked
+          <Link href={secondaryHref} className="btn btn-outline backdrop-blur-sm bg-white/70">
+            {secondaryLabel}
           </Link>
         </motion.div>
 

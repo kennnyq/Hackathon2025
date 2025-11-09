@@ -7,7 +7,7 @@ import NavBar from '@/components/NavBar';
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get('next') || '/';
+  const nextPath = searchParams.get('next') || '/find';
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -51,12 +51,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
       <NavBar />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
+      <div className="page-fade-in mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
         <section className="flex-1">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <span className="h-3 w-3 rounded-full bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
-            ToyotaTinder
-          </Link>
           <h1 className="mt-6 text-4xl font-bold tracking-tight text-slate-900">
             Log in to start matching
           </h1>
@@ -111,11 +107,8 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
               {isSubmitting ? 'Checking credentials…' : 'Log in'}
             </button>
-            <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Access granted upon validation
-            </p>
             <p className="text-center text-sm text-slate-600">
-              No pit-pass yet?{' '}
+              Don&apos;t have an account yet?{' '}
               <Link href={`/signup?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-red-600 hover:text-red-500">
                 Create an account
               </Link>
