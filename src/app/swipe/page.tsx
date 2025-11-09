@@ -1,20 +1,19 @@
 'use client';
 import NavBar from '@/components/NavBar';
-import { loadResults, loadResultsMeta, addLike, saveResults, loadUserFilter } from '@/lib/likes';
+import { loadResults, loadResultsMeta, addLike, saveResults, loadUserFilter, removeLike } from '@/lib/likes';
 import { Car, RecommendationResponse, UserFilter } from '@/lib/types';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, MotionProps } from 'framer-motion';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import CarCard from '@/components/CarCard';
+import SwipeCard from '@/components/SwipeCard';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useSessionId } from '@/hooks/useSessionId';
+import { createPortal } from 'react-dom';
 
 type SwipeMeta = { id: Car['Id'] | null; dir: 'left' | 'right' };
 const STACK_LIMIT = 3;
 const PRELOAD_THRESHOLD = 5;
 const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
-
-let warning: string | null = null;
 
 export default function SwipePage() {
   useRequireAuth();
@@ -23,11 +22,17 @@ export default function SwipePage() {
   const [index, setIndex] = useState(0);
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
   const [warningToast, setWarningToast] = useState<string | null>(null);
+  const [lastSwipe, setLastSwipe] = useState<SwipeMeta | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
   const [userFilter, setUserFilter] = useState<UserFilter | null>(null);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<number>>(new Set());
   const lastFetchIndexRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,9 +43,8 @@ export default function SwipePage() {
       seenIdsRef.current = new Set(storedCars.map(car => car.Id));
       setUserFilter(loadUserFilter());
       const meta = loadResultsMeta();
-      const warningMessage = meta?.warning;
-      setWarning(warningMessage);
-      setWarningToast(warningMessage ?? null);
+      const warningMessage = meta?.warning ?? null;
+      setWarningToast(warningMessage);
     });
     return () => {
       cancelled = true;
@@ -108,10 +112,33 @@ export default function SwipePage() {
 
   function onSwipe(dir: 'left' | 'right') {
     if (!current) return;
+    const meta: SwipeMeta = { id: current.Id, dir };
     if (dir === 'right') addLike(current);
     sendFeedback(current.Id, dir === 'right' ? 'like' : 'reject');
-    setSwipeMeta({ id: current.Id, dir });
+    setLastSwipe(meta);
+    setSwipeMeta(meta);
   }
+
+  const undoLast = useCallback(() => {
+    if (index <= 0) return;
+    const targetIndex = index - 1;
+    const prevCar = cars[targetIndex];
+    if (lastSwipe?.dir === 'right' && prevCar && lastSwipe.id === prevCar.Id) {
+      removeLike(prevCar.Id);
+    }
+    setIndex(targetIndex);
+    setSwipeMeta({ id: null, dir: 'right' });
+    setLastSwipe(null);
+  }, [cars, index, lastSwipe]);
+
+  const skipAll = useCallback(() => {
+    if (index >= cars.length) return;
+    const skipped = cars.slice(index);
+    skipped.forEach(car => sendFeedback(car.Id, 'reject'));
+    setIndex(cars.length);
+    setSwipeMeta({ id: null, dir: 'right' });
+    setLastSwipe(null);
+  }, [cars, index, sendFeedback]);
 
   useEffect(() => {
     if (cars.length || !userFilter || isFetchingMore) return;
@@ -201,12 +228,6 @@ export default function SwipePage() {
           )}
         </AnimatePresence>
         <section className="mx-auto max-w-3xl px-4 pt-8 pb-20">
-          {warning && (
-            <div className="card border-amber-200 bg-amber-50">
-              <div className="font-semibold text-amber-700">Heads up</div>
-              <div className="text-sm text-slate-600">{warning}</div>
-            </div>
-          )}
           <div className="mt-6 flex justify-center">
             <Deck
               cars={cars}
@@ -216,31 +237,65 @@ export default function SwipePage() {
               resetSwipeMeta={() => setSwipeMeta({ id: null, dir: 'right' })}
             />
           </div>
+          <div className="mt-10 flex items-center justify-center h-14">
+            <AnimatePresence>
+              {!isComplete && (
+                <motion.div
+                  key="controls"
+                  className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                >
+                  <button
+                    type="button"
+                    onClick={undoLast}
+                    aria-label="Undo last swipe"
+                    disabled={index <= 0}
+                    className="absolute left-5 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 10l-5 5 5 5" />
+                      <path d="M4 15h11a5 5 0 1 0 0-10H9" />
+                    </svg>
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <button className="btn btn-outline" type="button" onClick={() => onSwipe('left')}>Skip</button>
+                    <button className="btn btn-primary" type="button" onClick={() => onSwipe('right')}>Like</button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <AnimatePresence>
             {!isComplete && (
               <motion.div
-                key="controls"
-                className="mt-10 flex items-center justify-center gap-4"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <button className="btn btn-outline" onClick={() => onSwipe('left')}>Skip</button>
-                <button className="btn btn-primary" onClick={() => onSwipe('right')}>Like</button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {!isComplete && (
-              <motion.p
                 key="remaining"
                 className="text-center text-slate-500 mt-3 text-sm"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
               >
-                {remaining} remaining
-              </motion.p>
+                <span>
+                  {remaining} remaining.{' '}
+                  <button
+                    type="button"
+                    className="underline decoration-slate-400 underline-offset-2 text-slate-500 hover:text-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    onClick={skipAll}
+                    disabled={remaining <= 0}
+                  >
+                    Skip all
+                  </button>
+                </span>
+              </motion.div>
             )}
           </AnimatePresence>
           {fetchError && !isComplete && (
@@ -252,37 +307,47 @@ export default function SwipePage() {
 
         </section>
       </motion.main>
-      <AnimatePresence>
-        {isComplete && (
-          <motion.div
-            key="complete-card"
-            className="fixed inset-0 z-40 flex items-center justify-center px-4"
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 60 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-          >
-            <div className="card text-center shadow-2xl max-w-sm w-full bg-white">
-              <h2 className="text-2xl font-bold">All done!</h2>
-              <p className="text-slate-600 mt-2">View your liked cars or keep adding fresh matches.</p>
-              <div className="mt-5 flex gap-3 justify-center">
-                <Link href="/liked" className="btn btn-primary">View Liked</Link>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={handleKeepGoing}
-                  disabled={isFetchingMore || !userFilter || !sessionId}
-                >
-                  Keep going
-                </button>
-              </div>
-              {fetchError && (
-                <p className="text-sm text-red-500 mt-3">{fetchError}</p>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {hasMounted && createPortal(
+        <AnimatePresence>
+          {isComplete && (
+            <motion.div
+              key="complete-card"
+              className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center px-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <div className="absolute inset-x-0 bottom-0 top-[72px] bg-white/70 backdrop-blur-[1.5px] pointer-events-none z-0" aria-hidden="true" />
+              <motion.div
+                className="pointer-events-auto relative z-10 card text-center shadow-2xl max-w-sm w-full bg-white"
+                initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <h2 className="text-2xl font-bold">All done!</h2>
+                <p className="text-slate-600 mt-2">View your liked cars or keep adding fresh matches.</p>
+                <div className="mt-5 flex gap-3 justify-center">
+                  <Link href="/liked" className="btn btn-primary">View Liked</Link>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={handleKeepGoing}
+                    disabled={isFetchingMore || !userFilter || !sessionId}
+                  >
+                    Keep going
+                  </button>
+                </div>
+                {fetchError && (
+                  <p className="text-sm text-red-500 mt-3">{fetchError}</p>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }
@@ -303,14 +368,12 @@ function Deck({
   const remaining = Math.max(cars.length - index, 0);
   const visibleStackSize = Math.min(STACK_LIMIT, remaining);
   const stack = cars.slice(index, index + visibleStackSize);
-  if (!stack.length) return <div className="text-slate-500">No more cards</div>;
 
   return (
     <div className="relative h-[580px] w-[340px] sm:w-[360px]">
       <AnimatePresence initial={false} onExitComplete={resetSwipeMeta}>
         {stack.map((car, stackIndex) => {
           const isTop = stackIndex === 0;
-          const gradient = gradientForId(car.Id);
           const rotation = rotationForCard(car.Id, stackIndex);
           const globalPosition = index + stackIndex;
           const zIndex = cars.length - globalPosition;
@@ -344,7 +407,6 @@ function Deck({
             <DeckCard
               key={car.Id}
               car={car}
-              gradient={gradient}
               isTop={isTop}
               isInteractive
               initialProps={initial}
@@ -367,7 +429,6 @@ function Deck({
 
 type DeckCardProps = {
   car: Car;
-  gradient: string;
   isTop: boolean;
   isInteractive: boolean;
   initialProps: MotionProps['initial'];
@@ -384,7 +445,6 @@ type DeckCardProps = {
 
 function DeckCard({
   car,
-  gradient,
   isTop,
   isInteractive,
   initialProps,
@@ -442,12 +502,9 @@ function DeckCard({
       exit={exitProps}
       transition={transitionProps}
     >
-      <CarCard
+      <SwipeCard
         car={car}
         className={[
-          'bg-linear-to-br!',
-          gradient,
-          'border-transparent!',
           isTop
             ? 'shadow-[0_25px_45px_rgba(244,63,94,0.25)]'
             : 'opacity-90 shadow-[0_20px_35px_rgba(15,23,42,0.12)]',
@@ -457,19 +514,6 @@ function DeckCard({
       />
     </motion.div>
   );
-}
-
-const CARD_GRADIENTS = [
-  'from-rose-50 via-red-50 to-amber-100',
-  'from-orange-50 via-rose-50 to-pink-100',
-  'from-red-50 via-white to-rose-100',
-  'from-amber-50 via-rose-50 to-orange-100',
-  'from-rose-100 via-orange-50 to-white',
-];
-
-function gradientForId(id: Car['Id']) {
-  const hash = hashString(String(id));
-  return CARD_GRADIENTS[hash % CARD_GRADIENTS.length];
 }
 
 function rotationForCard(id: Car['Id'], stackIndex: number) {
@@ -488,7 +532,4 @@ function hashString(value: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
-}
-function setWarning(warningMessage: string | undefined) {
-  warning = warningMessage ?? null;
 }

@@ -1,7 +1,7 @@
 'use client';
 import NavBar from '@/components/NavBar';
 import { useLoadingOverlay } from '@/components/LoadingOverlayProvider';
-import { useEffect, useRef, useState, ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Preferences, RecommendationResponse, UserFilter, Car } from '@/lib/types';
 import { saveResults, saveUserFilter } from '@/lib/likes';
@@ -26,6 +26,45 @@ const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
 const DEFAULT_ZIP = '75080';
 type SectionKey = 'price' | 'body' | 'efficiency';
+
+const FORM_VARIANTS = {
+  hidden: { opacity: 0, y: 30 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35,
+      ease: [0.22, 1, 0.36, 1],
+      delayChildren: 0.04,
+      staggerChildren: 0.07,
+    },
+  },
+  loading: { opacity: 0.6, y: 0 },
+} as const;
+
+const HEADING_VARIANTS = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+} as const;
+
+const CARD_VARIANTS = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: 'easeOut', staggerChildren: 0.05 },
+  },
+} as const;
+
+const STACK_VARIANTS = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.04 } },
+} as const;
+
+const FIELD_VARIANTS = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+} as const;
 
 export default function FindPage() {
   const router = useRouter();
@@ -70,7 +109,23 @@ export default function FindPage() {
     hideOverlay();
   }, [hideOverlay]);
 
-  function beginSequence() {
+  const toggleSection = (key: SectionKey) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const runLoadingSequence = useCallback(async (signal: AbortSignal) => {
+    for (let i = 0; i < LOADING_STEPS.length; i += 1) {
+      if (signal.aborted) throw createAbortError();
+      setActiveStep(i);
+      const isLast = i === LOADING_STEPS.length - 1;
+      if (!isLast) {
+        const delay = STEP_BASE_MS + Math.random() * STEP_JITTER_MS;
+        await sleep(delay, signal);
+      }
+    }
+  }, []);
+
+  const beginSequence = useCallback(() => {
     sequenceControllerRef.current?.abort();
     const controller = new AbortController();
     sequenceControllerRef.current = controller;
@@ -84,23 +139,7 @@ export default function FindPage() {
         }
       });
     return promise as Promise<void>;
-  }
-
-  const toggleSection = (key: SectionKey) => {
-    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  async function runLoadingSequence(signal: AbortSignal) {
-    for (let i = 0; i < LOADING_STEPS.length; i += 1) {
-      if (signal.aborted) throw createAbortError();
-      setActiveStep(i);
-      const isLast = i === LOADING_STEPS.length - 1;
-      if (!isLast) {
-        const delay = STEP_BASE_MS + Math.random() * STEP_JITTER_MS;
-        await sleep(delay, signal);
-      }
-    }
-  }
+  }, [runLoadingSequence]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -191,19 +230,40 @@ export default function FindPage() {
   return (
     <main>
       <NavBar />
-      <section className="mx-auto max-w-3xl px-4 pt-12 pb-24">
-        <h1 className="text-3xl font-bold">Your preferences</h1>
-        <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-6">
-          <section className="card space-y-5">
-            <div className="space-y-4">
-              <PreferenceSection
+      <motion.section
+        className="mx-auto max-w-3xl px-4 pt-12 pb-24"
+        initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.h1
+          className="text-3xl font-bold"
+          variants={HEADING_VARIANTS}
+          initial="hidden"
+          animate="show"
+        >
+          Your preferences
+        </motion.h1>
+        <div className="relative mt-6">
+          <motion.form
+            onSubmit={onSubmit}
+            className="flex flex-col gap-6"
+            variants={FORM_VARIANTS}
+            initial="hidden"
+            animate={loading ? 'loading' : 'show'}
+            aria-busy={loading}
+          >
+          <motion.section className="card space-y-5" variants={CARD_VARIANTS}>
+            <motion.div className="space-y-4" variants={STACK_VARIANTS}>
+              <motion.div variants={FIELD_VARIANTS}>
+                <PreferenceSection
                 id="price"
                 title="Price & condition"
                 isOpen={openSections.price}
                 onToggle={toggleSection}
               >
-                  <div className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
+                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
+                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
                       <div>
                         <label className="label" htmlFor="priceMin">Price from</label>
                         <div className="relative">
@@ -218,8 +278,8 @@ export default function FindPage() {
                           <input className="input input--with-prefix" id="priceMax" name="priceMax" type="number" min={0} step={1} placeholder="50000" />
                         </div>
                       </div>
-                    </div>
-                    <div>
+                    </motion.div>
+                    <motion.div variants={FIELD_VARIANTS}>
                       <p className="label mb-2">Condition</p>
                       <div role="group" aria-label="Condition options" className="flex flex-wrap gap-2">
                         {CONDITION_OPTIONS.map(option => (
@@ -231,18 +291,20 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 </PreferenceSection>
+              </motion.div>
 
+              <motion.div variants={FIELD_VARIANTS}>
                 <PreferenceSection
                   id="body"
                   title="Body style, year & seating"
                   isOpen={openSections.body}
                   onToggle={toggleSection}
                 >
-                  <div className="space-y-4">
-                    <div>
+                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
+                    <motion.div variants={FIELD_VARIANTS}>
                       <p className="label mb-2">Body type</p>
                       <div role="group" aria-label="Body type options" className="flex flex-wrap gap-2">
                         {BODY_TYPE_OPTIONS.map(type => (
@@ -254,8 +316,8 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    </motion.div>
+                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
                       <div>
                         <label className="label" htmlFor="yearMin">Year from</label>
                         <input className="input" id="yearMin" name="yearMin" type="number" min={2008} max={CURRENT_YEAR} placeholder="2018" />
@@ -264,8 +326,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="yearMax">Year to</label>
                         <input className="input" id="yearMax" name="yearMax" type="number" min={2008} max={CURRENT_YEAR} placeholder={CURRENT_YEAR.toString()} />
                       </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    </motion.div>
+                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
                       <div>
                         <label className="label" htmlFor="seatsMin">Seats from</label>
                         <input className="input" id="seatsMin" name="seatsMin" type="number" min={2} max={9} placeholder="5" />
@@ -274,18 +336,20 @@ export default function FindPage() {
                         <label className="label" htmlFor="seatsMax">Seats to</label>
                         <input className="input" id="seatsMax" name="seatsMax" type="number" min={2} max={9} placeholder="8" />
                       </div>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 </PreferenceSection>
+              </motion.div>
 
+              <motion.div variants={FIELD_VARIANTS}>
                 <PreferenceSection
                   id="efficiency"
                   title="Mileage, fuel & MPG"
                   isOpen={openSections.efficiency}
                   onToggle={toggleSection}
                 >
-                  <div className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
+                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
+                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
                       <div>
                         <label className="label" htmlFor="mileageMin">Mileage from</label>
                         <input className="input" id="mileageMin" name="mileageMin" type="number" min={0} step={5000} placeholder="15000" />
@@ -294,8 +358,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="mileageMax">Mileage to</label>
                         <input className="input" id="mileageMax" name="mileageMax" type="number" min={0} step={5000} placeholder="60000" />
                       </div>
-                    </div>
-                    <div>
+                    </motion.div>
+                    <motion.div variants={FIELD_VARIANTS}>
                       <p className="label mb-2">Fuel type</p>
                       <div role="group" aria-label="Fuel type options" className="flex flex-wrap gap-2">
                         {FUEL_TYPE_OPTIONS.map(type => (
@@ -307,8 +371,8 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    </motion.div>
+                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
                       <div>
                         <label className="label" htmlFor="mpgMin">MPG from</label>
                         <input className="input" id="mpgMin" name="mpgMin" type="number" min={0} max={80} placeholder="30" />
@@ -317,8 +381,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="mpgMax">MPG to</label>
                         <input className="input" id="mpgMax" name="mpgMax" type="number" min={0} max={80} placeholder="45" />
                       </div>
-                    </div>
-                    <div>
+                    </motion.div>
+                    <motion.div variants={FIELD_VARIANTS}>
                       <label className="label" htmlFor="zipCode">Your zip code</label>
                       <div className="grid gap-2 md:grid-cols-[160px]">
                         <input
@@ -332,12 +396,13 @@ export default function FindPage() {
                           maxLength={5}
                         />
                       </div>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
                 </PreferenceSection>
-              </div>
+              </motion.div>
+            </motion.div>
 
-              <div>
+              <motion.div variants={FIELD_VARIANTS}>
                 <label className="label" htmlFor="notes">What else should we know?</label>
                 <textarea
                   className="textarea"
@@ -346,17 +411,31 @@ export default function FindPage() {
                   rows={4}
                   placeholder="Give a large, spacious family car that would be good for roadtrips."
                 />
-              </div>
-          </section>
+              </motion.div>
+          </motion.section>
 
-          <div className="flex flex-col items-center gap-2 text-center">
+          <motion.div className="flex flex-col items-center gap-2 text-center" variants={FIELD_VARIANTS}>
             <button disabled={loading} className="btn btn-primary px-8" type="submit">
               {loading ? 'Analyzing…' : 'Find Matches'}
             </button>
             {error && <span className="text-sm text-red-600">{error}</span>}
-          </div>
-        </form>
-      </section>
+          </motion.div>
+          </motion.form>
+          <AnimatePresence>
+            {loading && (
+              <motion.div
+                key="form-loading"
+                className="pointer-events-none absolute inset-0 rounded-[32px] bg-white/70 backdrop-blur-[2px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                aria-hidden="true"
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.section>
     </main>
   );
 }

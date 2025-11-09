@@ -43,6 +43,22 @@ export function saveResults(cars: Car[], meta?: ResultsMeta | null) {
   if (meta) localStorage.setItem(META_KEY, JSON.stringify(meta));
 }
 
+export function removeLike(id: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    const ids = new Set(getLikes());
+    ids.delete(id);
+    localStorage.setItem(LIKES_KEY, JSON.stringify([...ids]));
+    const details = getLikeDetails();
+    if (details[String(id)]) {
+      delete details[String(id)];
+      localStorage.setItem(LIKE_DETAILS_KEY, JSON.stringify(details));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function loadResults(): Car[] {
   try { return JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]'); } catch { return []; }
 }
