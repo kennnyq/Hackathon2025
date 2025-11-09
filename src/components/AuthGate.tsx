@@ -8,13 +8,21 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const token = window.localStorage.getItem('tt-auth');
-    if (!token) {
-      const destination = pathname && pathname !== '/login' ? pathname : '/';
-      router.replace(`/login?next=${encodeURIComponent(destination)}`);
-      return;
-    }
-    setIsReady(true);
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return;
+      const token = window.localStorage.getItem('tt-auth');
+      if (!token) {
+        const destination = pathname && pathname !== '/login' ? pathname : '/';
+        router.replace(`/login?next=${encodeURIComponent(destination)}`);
+        return;
+      }
+      setIsReady(true);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [router, pathname]);
 
   if (!isReady) {

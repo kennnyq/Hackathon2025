@@ -9,6 +9,15 @@ export type Car = {
   Condition: 'Excellent' | 'Good' | 'Fair' | string;
   Year: number;
   Type: 'Sedan' | 'SUV' | 'Truck' | 'Van' | 'Other' | string;
+  Mileage?: number;
+  Engine?: string;
+  Transmission?: string;
+  Drivetrain?: string;
+  MPG?: string;
+  ExteriorColor?: string;
+  InteriorColor?: string;
+  Dealer?: string;
+  DistanceMiles?: number;
 };
 
 export type Preferences = {

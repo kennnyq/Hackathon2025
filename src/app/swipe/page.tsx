@@ -17,9 +17,17 @@ export default function SwipePage() {
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
 
   useEffect(() => {
-    setCars(loadResults());
-    const meta = loadResultsMeta();
-    setWarning(meta?.warning);
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return;
+      setCars(loadResults());
+      const meta = loadResultsMeta();
+      setWarning(meta?.warning);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   const current = cars[index];
@@ -27,13 +35,21 @@ export default function SwipePage() {
 
   function onSwipe(dir: 'left' | 'right') {
     if (!current) return;
-    if (dir === 'right') addLike(current.Id);
+    if (dir === 'right') addLike(current);
     setSwipeMeta({ id: current.Id, dir });
   }
 
   useEffect(() => {
     if (!swipeMeta.id) return;
-    setIndex(i => Math.min(i + 1, cars.length));
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return;
+      setIndex(i => Math.min(i + 1, cars.length));
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [swipeMeta.id, cars.length]);
 
   if (!cars.length) {

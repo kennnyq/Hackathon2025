@@ -1,7 +1,6 @@
 'use client';
 import NavBar from '@/components/NavBar';
-import carsData from '@/data/cars.json';
-import { getLikes, clearLikes } from '@/lib/likes';
+import { getLikedCars, clearLikes } from '@/lib/likes';
 import { useEffect, useState } from 'react';
 import { Car } from '@/lib/types';
 import AuthGate from '@/components/AuthGate';
@@ -10,8 +9,15 @@ export default function LikedPage() {
   const [cars, setCars] = useState<Car[]>([]);
 
   useEffect(() => {
-    const ids = new Set(getLikes());
-    setCars((carsData as Car[]).filter(c => ids.has(c.Id)));
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return;
+      setCars(getLikedCars());
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (
