@@ -174,16 +174,22 @@ export function deriveNoteConstraints(notes: string | undefined | null): NoteCon
     if (Number.isFinite(seats)) constraints.minSeating = seats;
   }
   if (/suv|sport utility/.test(text)) {
-    constraints.preferredCategories = [...new Set([...(constraints.preferredCategories || []), 'suv'])];
+    addPreferredCategories(constraints, ['suv']);
   }
   if (/truck/.test(text)) {
-    constraints.preferredCategories = [...new Set([...(constraints.preferredCategories || []), 'truck'])];
+    addPreferredCategories(constraints, ['truck']);
   }
   if (/sedan|car/.test(text)) {
-    constraints.preferredCategories = [...new Set([...(constraints.preferredCategories || []), 'car'])];
+    addPreferredCategories(constraints, ['car']);
   }
   if (/van|minivan/.test(text)) {
-    constraints.preferredCategories = [...new Set([...(constraints.preferredCategories || []), 'van'])];
+    addPreferredCategories(constraints, ['van']);
+  }
+  const largeVehicleIntent = hasLargeVehicleIntent(text);
+  if (largeVehicleIntent) {
+    addPreferredCategories(constraints, ['suv', 'truck', 'van']);
+    const desiredSeats = Math.max(constraints.minSeating ?? 0, 6);
+    constraints.minSeating = desiredSeats;
   }
   const mileageMatch = text.match(/under\s+(\d{2,3})(k)?\s+miles/);
   if (mileageMatch) {
@@ -210,6 +216,24 @@ export function describeNoteConstraints(constraints: NoteConstraints): string {
   if (constraints.preferredCategories?.length) parts.push(`Prefer categories: ${constraints.preferredCategories.join(', ')}`);
   if (constraints.preferredFuel) parts.push(`Prefer fuel type: ${constraints.preferredFuel}`);
   return parts.length ? parts.join('; ') : 'No additional hard constraints inferred from notes.';
+}
+
+function addPreferredCategories(constraints: NoteConstraints, categories: string[]) {
+  const existing = new Set((constraints.preferredCategories || []).map(cat => cat.toLowerCase()));
+  categories.forEach(category => {
+    if (category) existing.add(category.toLowerCase());
+  });
+  constraints.preferredCategories = Array.from(existing);
+}
+
+function hasLargeVehicleIntent(text: string): boolean {
+  const sizeKeywords = ['large', 'larger', 'big', 'bigger', 'spacious', 'roomy', 'full size', 'full-size'];
+  const contextKeywords = ['car', 'vehicle', 'suv', 'truck', 'van', 'minivan', 'ride', 'hauler', 'family', 'roadtrip', 'road trip', 'road-trip', 'camping', 'cargo', 'third row', '3rd row', 'three row'];
+  const sizeMentioned = sizeKeywords.some(keyword => text.includes(keyword));
+  const contextMentioned = contextKeywords.some(keyword => text.includes(keyword));
+  if (sizeMentioned && contextMentioned) return true;
+  const haulingMentions = /(haul|hauling|gear|luggage)/.test(text);
+  return haulingMentions || /(third|3rd)\s*row/.test(text);
 }
 
 function matchesNoteConstraints(car: Car, constraints: NoteConstraints) {

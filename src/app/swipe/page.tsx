@@ -1,33 +1,44 @@
 'use client';
 import NavBar from '@/components/NavBar';
-import { loadResults, loadResultsMeta, addLike } from '@/lib/likes';
-import { Car } from '@/lib/types';
+import { loadResults, loadResultsMeta, addLike, saveResults, loadUserFilter } from '@/lib/likes';
+import { Car, RecommendationResponse, UserFilter } from '@/lib/types';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, MotionProps } from 'framer-motion';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import CarCard from '@/components/CarCard';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useSessionId } from '@/hooks/useSessionId';
 
 type SwipeMeta = { id: Car['Id'] | null; dir: 'left' | 'right' };
 const STACK_LIMIT = 3;
+const PRELOAD_THRESHOLD = 5;
 const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
 
 export default function SwipePage() {
   useRequireAuth();
+  const sessionId = useSessionId();
   const [cars, setCars] = useState<Car[]>([]);
   const [index, setIndex] = useState(0);
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
   const [warningToast, setWarningToast] = useState<string | null>(null);
+  const [userFilter, setUserFilter] = useState<UserFilter | null>(null);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const seenIdsRef = useRef<Set<number>>(new Set());
+  const lastFetchIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const frame = requestAnimationFrame(() => {
       if (cancelled) return;
-      setCars(loadResults());
+      const storedCars = loadResults();
+      setCars(storedCars);
+      seenIdsRef.current = new Set(storedCars.map(car => car.Id));
+      setUserFilter(loadUserFilter());
       const meta = loadResultsMeta();
-      if (meta?.warning) {
-        setWarningToast(meta.warning);
-      }
+      const warningMessage = meta?.warning;
+      setWarning(warningMessage);
+      setWarningToast(warningMessage ?? null);
     });
     return () => {
       cancelled = true;
@@ -41,15 +52,80 @@ export default function SwipePage() {
     return () => window.clearTimeout(timeout);
   }, [warningToast]);
 
+  const sendFeedback = useCallback((listingId: number, feedback: 'like' | 'reject') => {
+    if (!sessionId) return;
+    void fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, listingId, feedback }),
+    }).catch(() => undefined);
+  }, [sessionId]);
+
   const current = cars[index];
   const remaining = Math.max(cars.length - index, 0);
   const isComplete = index >= cars.length;
 
+  const fetchMore = useCallback(async (limit = 10) => {
+    if (!userFilter || !sessionId) return;
+    setIsFetchingMore(true);
+    setFetchError(null);
+    try {
+      const res = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, userFilter, limit }),
+      });
+      if (!res.ok) throw new Error('Unable to refresh recommendations');
+      const data: RecommendationResponse = await res.json();
+      if (!Array.isArray(data.results)) throw new Error('Recommendation response malformed');
+      const additions: Car[] = [];
+      data.results.forEach(result => {
+        if (seenIdsRef.current.has(result.Id)) return;
+        seenIdsRef.current.add(result.Id);
+        const { generated_description, score, ...rest } = result;
+        additions.push({
+          ...rest,
+          FitDescription: generated_description,
+          Score: score,
+        });
+      });
+      if (additions.length) {
+        setCars(prev => {
+          const merged = [...prev, ...additions];
+          saveResults(merged, null);
+          return merged;
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to refresh matches';
+      setFetchError(message);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [sessionId, userFilter]);
+
   function onSwipe(dir: 'left' | 'right') {
     if (!current) return;
     if (dir === 'right') addLike(current);
+    sendFeedback(current.Id, dir === 'right' ? 'like' : 'reject');
     setSwipeMeta({ id: current.Id, dir });
   }
+
+  useEffect(() => {
+    if (cars.length || !userFilter || isFetchingMore) return;
+    fetchMore();
+  }, [cars.length, userFilter, isFetchingMore, fetchMore]);
+
+  useEffect(() => {
+    if (!userFilter || isFetchingMore) return;
+    if (!cars.length) return;
+    const remaining = cars.length - index;
+    if (remaining > 0 && remaining <= PRELOAD_THRESHOLD) {
+      if (lastFetchIndexRef.current === index) return;
+      lastFetchIndexRef.current = index;
+      fetchMore();
+    }
+  }, [cars.length, index, userFilter, isFetchingMore, fetchMore]);
 
   useEffect(() => {
     if (!swipeMeta.id) return;
@@ -63,6 +139,25 @@ export default function SwipePage() {
       cancelAnimationFrame(frame);
     };
   }, [swipeMeta.id, cars.length]);
+
+  const handleKeepGoing = () => {
+    lastFetchIndexRef.current = index;
+    void fetchMore();
+  };
+
+  if (!cars.length && isFetchingMore) {
+    return (
+      <main>
+        <NavBar />
+        <section className="mx-auto max-w-3xl px-4 pt-12">
+          <div className="card">
+            <h1 className="text-2xl font-bold">Warming up matches…</h1>
+            <p className="text-slate-600 mt-2">We&apos;re ranking Toyotas that fit your vibe.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (!cars.length) {
     return (
@@ -104,6 +199,12 @@ export default function SwipePage() {
           )}
         </AnimatePresence>
         <section className="mx-auto max-w-3xl px-4 pt-8 pb-20">
+          {warning && (
+            <div className="card border-amber-200 bg-amber-50">
+              <div className="font-semibold text-amber-700">Heads up</div>
+              <div className="text-sm text-slate-600">{warning}</div>
+            </div>
+          )}
           <div className="mt-6 flex justify-center">
             <Deck
               cars={cars}
@@ -140,6 +241,12 @@ export default function SwipePage() {
               </motion.p>
             )}
           </AnimatePresence>
+          {fetchError && !isComplete && (
+            <p className="text-center text-sm text-red-500 mt-3">{fetchError}</p>
+          )}
+          {isFetchingMore && (
+            <p className="text-center text-xs text-slate-500 mt-2">Refreshing matches…</p>
+          )}
 
         </section>
       </motion.main>
@@ -155,11 +262,21 @@ export default function SwipePage() {
           >
             <div className="card text-center shadow-2xl max-w-sm w-full bg-white">
               <h2 className="text-2xl font-bold">All done!</h2>
-              <p className="text-slate-600 mt-2">View your liked cars or try again.</p>
+              <p className="text-slate-600 mt-2">View your liked cars or keep adding fresh matches.</p>
               <div className="mt-5 flex gap-3 justify-center">
                 <Link href="/liked" className="btn btn-primary">View Liked</Link>
-                <Link href="/find" className="btn btn-outline">Run again</Link>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleKeepGoing}
+                  disabled={isFetchingMore || !userFilter || !sessionId}
+                >
+                  Keep going
+                </button>
               </div>
+              {fetchError && (
+                <p className="text-sm text-red-500 mt-3">{fetchError}</p>
+              )}
             </div>
           </motion.div>
         )}
@@ -370,3 +487,7 @@ function hashString(value: string) {
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
+function setWarning(warningMessage: string | undefined) {
+  throw new Error('Function not implemented.');
+}
+

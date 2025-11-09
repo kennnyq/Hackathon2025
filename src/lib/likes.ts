@@ -1,4 +1,4 @@
-import { Car } from './types';
+import { Car, UserFilter } from './types';
 
 export type ResultsMeta = {
   warning?: string;
@@ -9,6 +9,7 @@ const LIKES_KEY = 'toyotaTinder.likes';
 const LIKE_DETAILS_KEY = 'toyotaTinder.likeDetails';
 const RESULTS_KEY = 'toyotaTinder.results';
 const META_KEY = 'toyotaTinder.resultsMeta';
+const FILTER_KEY = 'toyotaTinder.userFilter';
 
 export function getLikes(): number[] {
   if (typeof window === 'undefined') return [];
@@ -51,6 +52,26 @@ export function loadResultsMeta(): ResultsMeta | null {
     const raw = localStorage.getItem(META_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as ResultsMeta;
+  } catch {
+    return null;
+  }
+}
+
+export function saveUserFilter(filter: UserFilter) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(filter));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+export function loadUserFilter(): UserFilter | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(FILTER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as UserFilter;
   } catch {
     return null;
   }

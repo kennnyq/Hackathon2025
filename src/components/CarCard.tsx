@@ -20,6 +20,7 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
   const exterior = car.ExteriorColor || null;
   const interior = car.InteriorColor || null;
   const dealerName = car.Dealer || 'Dealer pending';
+  const matchPercent = typeof car.Score === 'number' ? Math.round(car.Score * 100) : null;
   const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
   const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
   const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
@@ -67,6 +68,9 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
           <div className="text-right">
             <p className="text-xs uppercase tracking-wide text-slate-500">Price</p>
             <p className="text-2xl font-bold text-slate-900">${car.Price.toLocaleString()}</p>
+            {matchPercent != null && (
+              <p className="text-xs font-semibold text-emerald-600">{matchPercent}% match</p>
+            )}
           </div>
         </div>
 

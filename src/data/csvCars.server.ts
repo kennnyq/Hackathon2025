@@ -75,6 +75,7 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
   const fuelCategory = formatFuelCategory(record.fuel_type);
   const seating = Number.parseInt(record.available_seating, 10);
   const vehicleCategory = formatVehicleCategory(record.vehicle_category, record.model);
+  const doors = Number.parseInt(record.doors, 10);
 
   const car: Car = {
     Id: id,
@@ -99,7 +100,9 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     DealerWebsite: record.dealership_website?.trim() || undefined,
     DistanceMiles: Number.isFinite(distance) ? Number(distance.toFixed(1)) : undefined,
     Seating: Number.isFinite(seating) ? seating : deriveSeating(record.model, vehicleCategory),
+    Doors: Number.isFinite(doors) ? doors : undefined,
     ImageUrl: formatImagePath(record.image),
+    ModelUrl: record.model_url?.trim() || undefined,
   };
 
   return car;
