@@ -51,7 +51,7 @@ export default function SwipePage() {
 
   function onSwipe(dir: 'left' | 'right') {
     if (!current) return;
-    if (dir === 'right') addLike(current.Id);
+    if (dir === 'right') addLike(current);
     setSwipeMeta({ id: current.Id, dir });
   }
 
@@ -145,29 +145,29 @@ export default function SwipePage() {
             )}
           </AnimatePresence>
 
-          <AnimatePresence>
-            {isComplete && (
-              <motion.div
-                key="complete-card"
-                className="fixed inset-0 z-40 flex items-center justify-center px-4"
-                initial={{ opacity: 0, y: 60 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 60 }}
-                transition={{ duration: 0.4, ease: 'easeOut' }}
-              >
-                <div className="card text-center shadow-2xl max-w-sm w-full bg-white">
-                  <h2 className="text-2xl font-bold">All done!</h2>
-                  <p className="text-slate-600 mt-2">View your liked cars or try again.</p>
-                  <div className="mt-5 flex gap-3 justify-center">
-                    <Link href="/liked" className="btn btn-primary">View Liked</Link>
-                    <Link href="/find" className="btn btn-outline">Run again</Link>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </section>
       </motion.main>
+      <AnimatePresence>
+        {isComplete && (
+          <motion.div
+            key="complete-card"
+            className="fixed inset-0 z-40 flex items-center justify-center px-4"
+            initial={{ opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 60 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          >
+            <div className="card text-center shadow-2xl max-w-sm w-full bg-white">
+              <h2 className="text-2xl font-bold">All done!</h2>
+              <p className="text-slate-600 mt-2">View your liked cars or try again.</p>
+              <div className="mt-5 flex gap-3 justify-center">
+                <Link href="/liked" className="btn btn-primary">View Liked</Link>
+                <Link href="/find" className="btn btn-outline">Run again</Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
