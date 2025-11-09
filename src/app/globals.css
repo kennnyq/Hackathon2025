@@ -71,10 +71,10 @@
   @apply inline-flex items-center justify-center rounded-full px-3 py-0.5 text-slate-600 transition border border-transparent hover:border-red-100 hover:text-red-600;
 }
 .nav-pill-auth {
-  @apply min-w-[5.5rem];
+  @apply min-w-[5.75rem];
 }
 .nav-pill-compact {
-  @apply px-1;
+  @apply px-1.5;
 }
 
 /* Inputs */

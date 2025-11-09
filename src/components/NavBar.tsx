@@ -36,6 +36,10 @@ export default function NavBar() {
     return `/login?next=${encodeURIComponent(path)}`;
   };
 
+  const authButtonClass = 'nav-pill nav-pill-auth border-red-200/80 text-red-600 hover:border-red-300';
+  const authLinkClass = 'nav-pill nav-pill-auth';
+  const githubLinkClass = 'nav-pill nav-pill-compact';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-red-100/70 bg-white/70 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-2 text-slate-900">
@@ -60,7 +64,7 @@ export default function NavBar() {
           <Link className="nav-pill" href={protectedHref('/compare')}>Compare</Link>
           <a className="nav-pill" href="https://www.toyota.com/" target="_blank" rel="noreferrer">Toyota</a>
           <a
-            className="nav-pill nav-pill-compact"
+            className={githubLinkClass}
             href="https://github.com/kennnyq/Hackathon2025"
             target="_blank"
             rel="noreferrer"
@@ -77,12 +81,14 @@ export default function NavBar() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="nav-pill nav-pill-auth border-red-200/80 text-red-600 hover:border-red-300"
+              className={authButtonClass}
             >
               Sign out
             </button>
           ) : (
-            <Link className="nav-pill nav-pill-auth" href="/login">Log in</Link>
+            <Link className={authLinkClass} href="/login">
+              Log in
+            </Link>
           )}
         </div>
       </nav>
