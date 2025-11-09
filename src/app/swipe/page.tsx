@@ -16,7 +16,6 @@ export default function SwipePage() {
   useRequireAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [index, setIndex] = useState(0);
-  const [warning, setWarning] = useState<string | undefined>();
   const [swipeMeta, setSwipeMeta] = useState<SwipeMeta>({ id: null, dir: 'right' });
   const [warningToast, setWarningToast] = useState<string | null>(null);
 
@@ -26,18 +25,15 @@ export default function SwipePage() {
       if (cancelled) return;
       setCars(loadResults());
       const meta = loadResultsMeta();
-      setWarning(meta?.warning);
+      if (meta?.warning) {
+        setWarningToast(meta.warning);
+      }
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
   }, []);
-
-  useEffect(() => {
-    if (!warning) return;
-    setWarningToast(warning);
-  }, [warning]);
 
   useEffect(() => {
     if (!warningToast || typeof window === 'undefined') return;

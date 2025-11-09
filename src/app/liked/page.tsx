@@ -4,7 +4,9 @@ import { getLikedCars, clearLikes } from '@/lib/likes';
 import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Car } from '@/lib/types';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type SortKey = 'az' | 'price-asc' | 'price-desc' | 'mpg-asc' | 'mpg-desc';
 
@@ -19,6 +21,7 @@ export default function LikedPage() {
   const [priceRange, setPriceRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [isModalVisible, setModalVisible] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +85,9 @@ export default function LikedPage() {
   const effectiveMinPrice = roundDownToThousand(priceRange.min ?? priceLimits.min);
   const effectiveMaxPrice = roundUpToThousand(priceRange.max ?? priceLimits.max ?? effectiveMinPrice);
   const disablePriceControls = !cars.length || priceLimits.min === priceLimits.max;
+  const hasEnoughForComparison = cars.length >= 2;
+
+  const toggleFilters = () => setFiltersOpen(prev => !prev);
 
   function toggleType(type: string) {
     setSelectedTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
@@ -182,70 +188,121 @@ export default function LikedPage() {
           <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
             <aside className="border-r border-slate-100 pr-0 lg:pr-8">
               <div className="flex items-center justify-between pb-4">
-                <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-red-200 hover:text-red-500"
+                    aria-label={filtersOpen ? 'Collapse filters' : 'Expand filters'}
+                    aria-expanded={filtersOpen}
+                    onClick={toggleFilters}
+                  >
+                    <motion.span animate={{ rotate: filtersOpen ? 180 : 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }}>
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </motion.span>
+                  </button>
+                </div>
                 <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
                   Reset
                 </button>
               </div>
-              <FilterBlock title="Vehicles">
-                {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
-                {typeOptions.map(([type, count]) => (
-                  <FilterCheckbox
-                    key={type}
-                    label={`${type} (${count})`}
-                    checked={selectedTypes.includes(type)}
-                    onChange={() => toggleType(type)}
-                  />
-                ))}
-              </FilterBlock>
+              <AnimatePresence initial={false}>
+                {filtersOpen && (
+                  <motion.div
+                    key="filters-content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-6 pt-2">
+                      <section>
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Vehicles</h3>
+                        {typeOptions.length === 0 && <p className="mt-3 text-sm text-slate-500">No vehicle types tracked yet.</p>}
+                        <div className="mt-3 space-y-2">
+                          {typeOptions.map(([type, count]) => (
+                            <FilterCheckbox
+                              key={type}
+                              label={`${type} (${count})`}
+                              checked={selectedTypes.includes(type)}
+                              onChange={() => toggleType(type)}
+                            />
+                          ))}
+                        </div>
+                      </section>
 
-                <FilterBlock title="Price (MSRP)">
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-3">
-                      <input
-                        type="range"
-                        min={priceLimits.min}
-                        max={priceLimits.max || priceLimits.min + 1}
-                        value={effectiveMinPrice}
-                        step={1000}
-                        onChange={e => updateMinPrice(Number(e.target.value))}
-                        className="w-full accent-red-500"
-                        disabled={disablePriceControls}
-                      />
-                      <input
-                        type="range"
-                        min={priceLimits.min}
-                        max={priceLimits.max || priceLimits.min + 1}
-                        value={effectiveMaxPrice}
-                        step={1000}
-                        onChange={e => updateMaxPrice(Number(e.target.value))}
-                        className="w-full accent-red-500"
-                        disabled={disablePriceControls}
-                      />
+                      <section>
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Price (MSRP)</h3>
+                        <div className="mt-3 space-y-4">
+                          <div className="flex flex-col gap-3">
+                            <input
+                              type="range"
+                              min={priceLimits.min}
+                              max={priceLimits.max || priceLimits.min + 1}
+                              value={effectiveMinPrice}
+                              step={1000}
+                              onChange={e => updateMinPrice(Number(e.target.value))}
+                              className="w-full accent-red-500"
+                              disabled={disablePriceControls}
+                            />
+                            <input
+                              type="range"
+                              min={priceLimits.min}
+                              max={priceLimits.max || priceLimits.min + 1}
+                              value={effectiveMaxPrice}
+                              step={1000}
+                              onChange={e => updateMaxPrice(Number(e.target.value))}
+                              className="w-full accent-red-500"
+                              disabled={disablePriceControls}
+                            />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <PriceInput label="Min" value={effectiveMinPrice} onChange={val => updateMinPrice(val)} disabled={!cars.length} />
+                            <PriceInput label="Max" value={effectiveMaxPrice} onChange={val => updateMaxPrice(val)} disabled={!cars.length} />
+                          </div>
+                        </div>
+                      </section>
+
+                      <section>
+                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Available seating</h3>
+                        {seatingOptions.length === 0 && <p className="mt-3 text-sm text-slate-500">No seating data captured yet.</p>}
+                        <div className="mt-3 space-y-2">
+                          {seatingOptions.map(([seat, count]) => (
+                            <FilterCheckbox
+                              key={seat}
+                              label={`${seat} (${count})`}
+                              checked={selectedSeats.includes(seat)}
+                              onChange={() => toggleSeat(seat)}
+                            />
+                          ))}
+                        </div>
+                      </section>
+
+                      <div className="space-y-3">
+                        <button className="btn btn-outline w-full" onClick={handleClearLikes}>Clear liked cars</button>
+                        <Link href="/compare" className="btn btn-ghost w-full text-sm text-slate-500 hover:text-red-600 text-center">
+                          Open compare page
+                        </Link>
+                        {hasEnoughForComparison ? (
+                          <p className="text-xs text-slate-500 text-center">
+                            Launch the compare page to stack any two favorites.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500 text-center">
+                            Save at least two vehicles to unlock the compare experience.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <PriceInput label="Min" value={effectiveMinPrice} onChange={val => updateMinPrice(val)} disabled={!cars.length} />
-                      <PriceInput label="Max" value={effectiveMaxPrice} onChange={val => updateMaxPrice(val)} disabled={!cars.length} />
-                    </div>
-                  </div>
-                </FilterBlock>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </aside>
 
-                <FilterBlock title="Available seating">
-                  {seatingOptions.length === 0 && <p className="text-sm text-slate-500">No seating data captured yet.</p>}
-                  {seatingOptions.map(([seat, count]) => (
-                    <FilterCheckbox
-                      key={seat}
-                      label={`${seat} (${count})`}
-                      checked={selectedSeats.includes(seat)}
-                      onChange={() => toggleSeat(seat)}
-                    />
-                  ))}
-                </FilterBlock>
-
-                <button className="btn btn-outline mt-6 w-full" onClick={handleClearLikes}>Clear liked cars</button>
-              </aside>
-
-              <div>
+            <div>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Matches</p>
@@ -324,17 +381,6 @@ function clamp(value: number, min: number, max: number) {
   if (max < min) return min;
   if (Number.isNaN(value)) return min;
   return Math.max(min, Math.min(max, value));
-}
-
-function FilterBlock({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="border-t border-slate-100 py-5 first:border-t-0 first:pt-0">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">{title}</h3>
-      </div>
-      <div className="mt-3 space-y-2">{children}</div>
-    </section>
-  );
 }
 
 function FilterCheckbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {

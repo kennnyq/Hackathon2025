@@ -57,6 +57,7 @@ export default function NavBar() {
         <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/80 px-2 py-0.5 text-sm font-semibold shadow-[0_12px_35px_rgba(15,23,42,0.08)]">
           <Link className="nav-pill" href={protectedHref('/find')}>Find</Link>
           <Link className="nav-pill" href={protectedHref('/liked')}>Liked</Link>
+          <Link className="nav-pill" href={protectedHref('/compare')}>Compare</Link>
           <a className="nav-pill" href="https://www.toyota.com/" target="_blank" rel="noreferrer">Toyota</a>
           <a
             className="nav-pill px-2"
