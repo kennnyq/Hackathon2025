@@ -1,16 +1,17 @@
 'use client';
 import NavBar from '@/components/NavBar';
 import { getLikedCars, clearLikes } from '@/lib/likes';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Car } from '@/lib/types';
-import AuthGate from '@/components/AuthGate';
 import Image from 'next/image';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 type SortKey = 'az' | 'price-asc' | 'price-desc' | 'mpg-asc' | 'mpg-desc';
 
 const MODAL_ANIMATION_MS = 240;
 
 export default function LikedPage() {
+  useRequireAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
@@ -168,36 +169,35 @@ export default function LikedPage() {
 
 
   return (
-    <AuthGate>
-      <main>
-        <NavBar />
-        <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
-          <header className="text-center">
-            <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
-            <h1 className="mt-3 text-4xl font-bold text-slate-900">Find your saved Toyotas</h1>
-            <p className="mt-2 text-slate-600">Dial in seating, budget, and body style filters to revisit the Toyotas you loved.</p>
-          </header>
+    <main>
+      <NavBar />
+      <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
+        <header className="text-center">
+          <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
+          <h1 className="mt-3 text-4xl font-bold text-slate-900">Find your saved Toyotas</h1>
+          <p className="mt-2 text-slate-600">Dial in seating, budget, and body style filters to revisit the Toyotas you loved.</p>
+        </header>
 
-          <div className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10">
-            <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
-              <aside className="border-r border-slate-100 pr-0 lg:pr-8">
-                <div className="flex items-center justify-between pb-4">
-                  <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
-                  <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
-                    Reset
-                  </button>
-                </div>
-                <FilterBlock title="Vehicles">
-                  {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
-                  {typeOptions.map(([type, count]) => (
-                    <FilterCheckbox
-                      key={type}
-                      label={`${type} (${count})`}
-                      checked={selectedTypes.includes(type)}
-                      onChange={() => toggleType(type)}
-                    />
-                  ))}
-                </FilterBlock>
+        <div className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10">
+          <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
+            <aside className="border-r border-slate-100 pr-0 lg:pr-8">
+              <div className="flex items-center justify-between pb-4">
+                <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+                <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
+                  Reset
+                </button>
+              </div>
+              <FilterBlock title="Vehicles">
+                {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
+                {typeOptions.map(([type, count]) => (
+                  <FilterCheckbox
+                    key={type}
+                    label={`${type} (${count})`}
+                    checked={selectedTypes.includes(type)}
+                    onChange={() => toggleType(type)}
+                  />
+                ))}
+              </FilterBlock>
 
                 <FilterBlock title="Price (MSRP)">
                   <div className="space-y-4">
@@ -295,7 +295,6 @@ export default function LikedPage() {
           />
         )}
       </main>
-    </AuthGate>
   );
 }
 
@@ -376,11 +375,26 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
   const category = getCategory(car);
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
+  const dealerName = car.Dealer || 'Dealer pending';
+  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
+  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
+  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
+  const dealerWebsite = car.DealerWebsite;
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect();
+    }
+  }
+
   return (
-    <button
-      type="button"
+    <article
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)]"
+      onKeyDown={handleKeyDown}
+      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)] focus:outline-none focus:ring-2 focus:ring-red-300"
     >
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
         <span>{category}</span>
@@ -402,7 +416,32 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
           <p className="mt-1">{seating}</p>
         </div>
       </div>
-    </button>
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-sm text-slate-600">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer</p>
+        <p className="font-semibold text-slate-900">{dealerName}</p>
+        <p>{dealerDetails || 'Distance visible after sharing a zip code.'}</p>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {dealerWebsite && (
+          <a
+            href={dealerWebsite}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-primary px-4 py-2 text-sm"
+            onClick={event => event.stopPropagation()}
+          >
+            Reach out to dealer
+          </a>
+        )}
+        <button
+          type="button"
+          className="btn btn-outline px-4 py-2 text-sm"
+          onClick={event => event.stopPropagation()}
+        >
+          Explore
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -420,6 +459,11 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
   const badge = car.Used ? 'Certified Used' : fuel;
   const imgSrc = car.ImageUrl || '/car-placeholder.svg';
   const whyItFits = car.FitDescription || 'Reasoning unavailable. Check back soon!';
+  const dealerName = car.Dealer || 'Dealer pending';
+  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
+  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
+  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
+  const dealerWebsite = car.DealerWebsite;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6 md:p-10">
@@ -490,6 +534,19 @@ function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: b
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
               <p className="mt-2 text-base text-slate-700">{whyItFits}</p>
+            </div>
+            <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer</p>
+              <p className="mt-2 text-lg font-semibold text-slate-900">{dealerName}</p>
+              <p className="text-sm text-slate-500">{dealerDetails || 'Distance visible after sharing a zip code.'}</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {dealerWebsite && (
+                  <a href={dealerWebsite} target="_blank" rel="noreferrer" className="btn btn-primary px-4 py-2 text-sm">
+                    Reach out to dealer
+                  </a>
+                )}
+                <button type="button" className="btn btn-outline px-4 py-2 text-sm">Explore</button>
+              </div>
             </div>
             {highlights.length > 0 && (
               <div>

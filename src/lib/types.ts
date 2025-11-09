@@ -17,7 +17,13 @@ export type Car = {
   ExteriorColor?: string;
   InteriorColor?: string;
   Dealer?: string;
+  DealerWebsite?: string;
+  DealerCity?: string;
+  DealerState?: string;
+  DealerZip?: string;
+  DistanceLabel?: string;
   DistanceMiles?: number;
+  UserZip?: string;
   FitDescription?: string;
   ImageUrl?: string;
   Seating?: number;
@@ -37,6 +43,7 @@ export type BodyStylePreference =
   | 'Convertible';
 
 export type Preferences = {
+  zipCode?: string | null;
   priceMin?: number | null;
   priceMax?: number | null;
   used: 'New' | 'Used' | 'Any';
