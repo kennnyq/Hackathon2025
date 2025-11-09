@@ -11,7 +11,7 @@ const LOADING_STEPS = [
   'Pinging Carvana for fresh Toyota arrivals…',
   'Checking CarMax certified inventory in your radius…',
   'Sweeping AutoTrader + dealer feeds for wild cards…',
-  'Analyzing your budget, fuel, and condition preferences…',
+  'Analyzing your budget, fuel, and mileage preferences…',
   'Scoring Toyotas and packing the swipe deck…',
 ] as const;
 const MIN_LOADING_MS = 1200;
@@ -62,12 +62,13 @@ export default function FindPage() {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const maxMileageRaw = Number(fd.get('maxMileage'));
     const prefs: Preferences = {
       budget: Number(fd.get('budget') || 0),
       used: (fd.get('used') as Preferences['used'] | null) ?? 'Any',
       location: String(fd.get('location') || ''),
       fuelType: (fd.get('fuelType') as Preferences['fuelType'] | null) ?? 'Any',
-      condition: (fd.get('condition') as Preferences['condition'] | null) ?? 'Any',
+      maxMileage: Number.isFinite(maxMileageRaw) && maxMileageRaw > 0 ? maxMileageRaw : null,
       notes: String(fd.get('notes') || ''),
     };
     setLoading(true);
@@ -135,13 +136,8 @@ export default function FindPage() {
                 </select>
               </div>
               <div>
-                <label className="label" htmlFor="condition">Condition</label>
-                <select className="select" id="condition" name="condition" defaultValue="Any">
-                  <option>Any</option>
-                  <option>Excellent</option>
-                  <option>Good</option>
-                  <option>Fair</option>
-                </select>
+                <label className="label" htmlFor="maxMileage">Max Mileage</label>
+                <input className="input" id="maxMileage" name="maxMileage" type="number" min={0} step={5000} placeholder="60000" />
               </div>
             </div>
             <div>

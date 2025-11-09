@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AnalyzeResponse, Car, Preferences } from '@/lib/types';
-import { filterCars, pickTopN } from '@/lib/util';
+import { filterCars, pickTopN, orderCarsForDisplay, deriveNoteConstraints, describeNoteConstraints } from '@/lib/util';
 import { GoogleGenAI } from '@google/genai';
 import { getCsvCars } from '@/data/csvCars.server';
 
@@ -11,12 +11,13 @@ export async function POST(req: Request) {
     const cars = getCsvCars();
     const filtered = filterCars(cars, prefs);
     const fallbackBase = filtered.length ? filtered : cars;
+    const noteConstraints = deriveNoteConstraints(prefs.notes);
 
     if (!key) {
       // Fallback: sample filtered (or entire dataset if empty), pick up to 10
-      const sampled = sampleRandom(fallbackBase, 10);
+      const sampled = orderCarsForDisplay(sampleRandom(fallbackBase, 10), prefs);
       const res: AnalyzeResponse = {
-        cars: sampled,
+        cars: decorateCarsForClient(sampled, prefs),
         warning: 'Server missing GEMINI_API_KEY. Showing a randomized filtered selection instead.',
       };
       return NextResponse.json(res);
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     // With key: use new @google/genai client to choose the best up to 10 by ID
     const ai = new GoogleGenAI({ apiKey: key });
     const { promptCars, totalMatches } = getPromptDataset(filtered, cars, prefs);
-    const prompt = buildPrompt(prefs, promptCars, totalMatches);
+    const prompt = buildPrompt(prefs, promptCars, totalMatches, describeNoteConstraints(noteConstraints));
 
     let text = '';
     try {
@@ -37,9 +38,9 @@ export async function POST(req: Request) {
       text = response.text ?? '';
     } catch (error) {
       console.error('Gemini generateContent failed', error);
-      const chosen = pickTopN(fallbackBase, prefs, 10);
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
       return NextResponse.json({
-        cars: chosen,
+        cars: decorateCarsForClient(chosen, prefs),
         warning: 'Gemini request failed. Using heuristic results.',
       });
     }
@@ -48,13 +49,20 @@ export async function POST(req: Request) {
 
     let ids: number[] = [];
     let reasoning = '';
+    let descriptions: Record<string, string> = {};
     try {
       const parsed = JSON.parse(text || '{}');
       ids = parsed.ids as number[];
       reasoning = parsed.reasoning || '';
+      if (parsed.descriptions && typeof parsed.descriptions === 'object') {
+        descriptions = parsed.descriptions as Record<string, string>;
+      }
     } catch {
-      const chosen = pickTopN(fallbackBase, prefs, 10);
-      return NextResponse.json({ cars: chosen, warning: 'Gemini response could not be parsed. Using heuristic results.' });
+      const chosen = orderCarsForDisplay(pickTopN(fallbackBase, prefs, 10), prefs);
+      return NextResponse.json({
+        cars: decorateCarsForClient(chosen, prefs),
+        warning: 'Gemini response could not be parsed. Using heuristic results.',
+      });
     }
 
     const map = new Map<number, Car>();
@@ -63,8 +71,12 @@ export async function POST(req: Request) {
 
     // Safety: if Gemini returned nothing, fallback to heuristic top N
     const finalCars = selected.length ? selected.slice(0, 10) : pickTopN(fallbackBase, prefs, 10);
+    const orderedCars = orderCarsForDisplay(finalCars, prefs);
 
-    const res: AnalyzeResponse = { cars: finalCars, reasoning };
+    const res: AnalyzeResponse = {
+      cars: decorateCarsForClient(orderedCars, prefs, descriptions),
+      reasoning,
+    };
     return NextResponse.json(res);
   } catch (err: unknown) {
     console.error(err);
@@ -91,6 +103,8 @@ const PROMPT_HEADER = [
   'MPG',
   'ExteriorColor',
   'InteriorColor',
+  'Seats',
+  'VehicleCategory',
 ] as const;
 
 function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
@@ -108,16 +122,23 @@ function getPromptDataset(filtered: Car[], all: Car[], prefs: Preferences) {
   };
 }
 
-function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number) {
+function buildPrompt(prefs: Preferences, cars: Car[], totalMatches: number, noteSummary: string) {
   const csv = carsToCsv(cars);
   const shown = Math.min(cars.length, PROMPT_ROW_LIMIT);
+  const mileageText = prefs.maxMileage
+    ? `Keep mileage at or below ${prefs.maxMileage} miles whenever possible.`
+    : 'When mileage preferences are unspecified, still favor lower mileage.';
+  const notes = prefs.notes?.trim() ? prefs.notes.trim() : 'No additional notes provided.';
   return [
     'You are a Toyota inventory matchmaker. Analyze the CSV data below and choose up to 10 listings that best satisfy the user preferences.',
-    'Rankings should prioritize staying within budget, matching used/new preference, matching fuel type, better condition, closer dealership (string match), lower mileage, and newer model years.',
+    'Rankings should prioritize staying within budget, matching used/new preference, matching fuel type, respecting any mileage cap, closer dealership (string match), lower mileage, and newer model years.',
+    mileageText,
+    `Derived note constraints: ${noteSummary}`,
+    `User chat notes to reference when writing descriptions: ${notes}`,
     'User preferences (JSON):',
     JSON.stringify(prefs),
     `Only pick Ids that exist in the CSV rows (showing ${shown} of ${totalMatches} matching records).`,
-    'Respond with strict JSON: {"ids":[<Id numbers>],"reasoning":"concise summary"}',
+    'Respond with strict JSON: {"ids":[<Id numbers>],"descriptions":{"<Id>":"1-2 sentence reason referencing user notes"},"reasoning":"concise summary"}',
     '',
     'CSV:',
     csv,
@@ -147,6 +168,8 @@ function getCarField(car: Car, column: typeof PROMPT_HEADER[number]) {
     case 'MPG': return car.MPG;
     case 'ExteriorColor': return car.ExteriorColor;
     case 'InteriorColor': return car.InteriorColor;
+    case 'Seats': return car.Seating;
+    case 'VehicleCategory': return car.VehicleCategory || car.Type;
     default: return '';
   }
 }
@@ -171,4 +194,31 @@ function sampleRandom(cars: Car[], count: number) {
     results.push(cars[idx]);
   }
   return results;
+}
+
+const DEFAULT_IMAGE_URL = '/car-placeholder.svg';
+
+function decorateCarsForClient(cars: Car[], prefs: Preferences, descriptions?: Record<string, string>) {
+  return cars.map(car => {
+    const carId = String(car.Id);
+    const provided = descriptions?.[carId];
+    return {
+      ...car,
+      ImageUrl: car.ImageUrl || DEFAULT_IMAGE_URL,
+      FitDescription: buildFallbackDescription(car, prefs, provided),
+    };
+  });
+}
+
+function buildFallbackDescription(car: Car, prefs: Preferences, provided?: string) {
+  if (provided && provided.trim()) return provided.trim();
+  const notes = (prefs.notes || '').trim();
+  const intro = notes ? `You mentioned "${notes}", so` : 'This pick';
+  const mileage = typeof car.Mileage === 'number'
+    ? `${car.Mileage.toLocaleString()} miles on the odometer`
+    : 'dealer-reported mileage that will need confirming';
+  const fuel = car['Fuel Type'] || car.FuelType || 'versatile fuel setup';
+  const dealer = car.Dealer ? ` at ${car.Dealer}` : '';
+  const budgetLine = prefs.budget ? ` It stays near your $${prefs.budget.toLocaleString()} target.` : '';
+  return `${intro} the ${car.Year} ${car.Model}${dealer} delivers ${mileage}, ${fuel.toLowerCase()} efficiency, and daily comfort that aligns with your priorities.${budgetLine}`;
 }

@@ -82,15 +82,18 @@ export default function SwipePage() {
           )}
 
           <div className="mt-6 flex items-center justify-center">
-            <Deck
-              cars={cars}
-              index={index}
-              onSwipe={onSwipe}
-              swipeMeta={swipeMeta}
-              resetSwipeMeta={() => setSwipeMeta({ id: null, dir: 'right' })}
-            />
+            <div className="relative rounded-[44px] border border-white/60 bg-white/90 p-6 shadow-[0_40px_90px_rgba(15,23,42,0.25)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl">
+              <div className="pointer-events-none absolute inset-3 rounded-[38px] border border-slate-200/80 shadow-inner shadow-white/40" />
+              <Deck
+                cars={cars}
+                index={index}
+                onSwipe={onSwipe}
+                swipeMeta={swipeMeta}
+                resetSwipeMeta={() => setSwipeMeta({ id: null, dir: 'right' })}
+              />
+            </div>
           </div>
-          <div className="mt-6 flex items-center justify-center gap-3">
+          <div className="mt-10 flex items-center justify-center gap-4">
             <button className="btn btn-outline" onClick={() => onSwipe('left')}>Skip</button>
             <button className="btn btn-primary" onClick={() => onSwipe('right')}>Like</button>
           </div>
@@ -129,7 +132,7 @@ function Deck({
   if (!stack.length) return <div className="text-slate-500">No more cards</div>;
 
   return (
-    <div className="relative h-[440px] w-[340px]">
+    <div className="relative h-[580px] w-[340px] sm:w-[360px]">
       <AnimatePresence initial={false} onExitComplete={resetSwipeMeta}>
         {stack.map((car, stackIndex) => {
           const isTop = stackIndex === 0;

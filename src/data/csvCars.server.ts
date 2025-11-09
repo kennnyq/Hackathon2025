@@ -73,6 +73,8 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
   const conditionRaw = (record.condition || '').toLowerCase();
   const used = conditionRaw !== 'new';
   const fuelCategory = formatFuelCategory(record.fuel_type);
+  const seating = Number.parseInt(record.available_seating, 10);
+  const vehicleCategory = formatVehicleCategory(record.vehicle_category, record.model);
 
   const car: Car = {
     Id: id,
@@ -84,7 +86,8 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     FuelType: fuelCategory,
     Condition: deriveCondition(conditionRaw, mileage),
     Year: Number.isFinite(year) ? year : 0,
-    Type: inferType(record.model),
+    Type: vehicleCategory || inferType(record.model),
+    VehicleCategory: vehicleCategory || undefined,
     Mileage: Number.isFinite(mileage) ? Math.round(mileage) : undefined,
     Engine: record.engine?.trim() || undefined,
     Transmission: record.transmission?.trim() || undefined,
@@ -94,6 +97,7 @@ function recordToCar(record: Record<string, string>, id: number): Car | null {
     InteriorColor: record.interior_color?.trim() || undefined,
     Dealer: dealer || undefined,
     DistanceMiles: Number.isFinite(distance) ? Number(distance.toFixed(1)) : undefined,
+    Seating: Number.isFinite(seating) ? seating : deriveSeating(record.model, vehicleCategory),
   };
 
   return car;
@@ -125,6 +129,37 @@ function deriveCondition(rawCondition: string, mileage?: number) {
   if ((mileage || 0) < 20000) return 'Excellent';
   if ((mileage || 0) < 90000) return 'Good';
   return 'Fair';
+}
+
+function formatVehicleCategory(raw: string | undefined, model: string | undefined) {
+  const normalized = (raw || '').trim();
+  if (normalized) return normalizeCategoryLabel(normalized);
+  return normalizeCategoryLabel(inferType(model || ''));
+}
+
+function normalizeCategoryLabel(value: string) {
+  const lower = value.toLowerCase();
+  if (lower.includes('truck')) return 'Trucks';
+  if (lower.includes('van')) return 'Minivan';
+  if (lower.includes('suv')) return 'SUVs';
+  if (lower.includes('cross')) return 'Crossovers';
+  if (lower.includes('sedan') || lower.includes('car') || lower.includes('coupe') || lower.includes('hatch')) return 'Cars';
+  return value.trim();
+}
+
+function deriveSeating(model: string | undefined, vehicleCategory?: string) {
+  const value = (model || '').toLowerCase();
+  const has = (...keywords: string[]) => keywords.some(k => value.includes(k));
+  if (has('sienna')) return 8;
+  if (has('sequoia') || has('grand highlander') || has('land cruiser')) return 8;
+  if (has('highlander') || has('4runner')) return 7;
+  if (has('supra')) return 2;
+  if (has('gr86') || has('gr 86')) return 4;
+  if (has('tundra') || has('tacoma')) return 5;
+  if (vehicleCategory === 'Minivan') return 8;
+  if (vehicleCategory === 'SUVs') return 7;
+  if (vehicleCategory === 'Trucks') return 5;
+  return 5;
 }
 
 function inferType(model: string) {
