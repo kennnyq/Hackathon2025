@@ -11,6 +11,7 @@ import { useSessionId } from '@/hooks/useSessionId';
 
 type SwipeMeta = { id: Car['Id'] | null; dir: 'left' | 'right' };
 const STACK_LIMIT = 3;
+const PRELOAD_THRESHOLD = 5;
 const ENTER_TRANSITION: MotionProps['transition'] = { type: 'spring', stiffness: 240, damping: 28 };
 
 export default function SwipePage() {
@@ -25,6 +26,7 @@ export default function SwipePage() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<number>>(new Set());
+  const lastFetchIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,7 +120,10 @@ export default function SwipePage() {
   useEffect(() => {
     if (!userFilter || isFetchingMore) return;
     if (!cars.length) return;
-    if (cars.length - index <= 3) {
+    const remaining = cars.length - index;
+    if (remaining > 0 && remaining <= PRELOAD_THRESHOLD) {
+      if (lastFetchIndexRef.current === index) return;
+      lastFetchIndexRef.current = index;
       fetchMore();
     }
   }, [cars.length, index, userFilter, isFetchingMore, fetchMore]);
@@ -135,6 +140,11 @@ export default function SwipePage() {
       cancelAnimationFrame(frame);
     };
   }, [swipeMeta.id, cars.length]);
+
+  const handleKeepGoing = () => {
+    lastFetchIndexRef.current = index;
+    void fetchMore();
+  };
 
   if (!cars.length && isFetchingMore) {
     return (
@@ -259,10 +269,10 @@ export default function SwipePage() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => void fetchMore()}
+                  onClick={handleKeepGoing}
                   disabled={isFetchingMore || !userFilter || !sessionId}
                 >
-                  {isFetchingMore ? 'Keep going…' : 'Keep going'}
+                  Keep going
                 </button>
               </div>
               {fetchError && (
