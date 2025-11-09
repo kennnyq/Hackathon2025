@@ -4,6 +4,7 @@
 :root {
   --brand: 355 80% 52%; /* vivid red */
   --accent: 12 90% 60%; /* warm coral */
+  --liked-modal-speed: 240ms;
 }
 
 /* Clean, elevated cards */
@@ -20,6 +21,20 @@
 }
 .btn-outline {
   @apply border border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300;
+}
+
+.brand-wordmark {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.nav-pill {
+  @apply inline-flex items-center rounded-full px-3 py-1 text-slate-600 transition border border-transparent hover:border-red-100 hover:text-red-600;
+}
+
+.nav-icon {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 transition hover:border-red-100 hover:text-red-600;
 }
 
 /* Inputs */
@@ -53,4 +68,58 @@
 .animate-fade-up {
   opacity: 0;
   animation: fadeUp 0.75s ease forwards;
+}
+
+@keyframes likedModalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes likedModalOverlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes likedModalPanelIn {
+  from { opacity: 0; transform: scale3d(0.95, 0.95, 1); }
+  to { opacity: 1; transform: scale3d(1, 1, 1); }
+}
+
+@keyframes likedModalPanelOut {
+  from { opacity: 1; transform: scale3d(1, 1, 1); }
+  to { opacity: 0; transform: scale3d(0.95, 0.95, 1); }
+}
+
+.liked-modal-overlay {
+  @apply fixed inset-0 bg-slate-950/70 backdrop-blur-sm;
+  z-index: 0;
+  animation: likedModalOverlayIn var(--liked-modal-speed) ease forwards;
+}
+
+.liked-modal-overlay.closing {
+  animation-name: likedModalOverlayOut;
+}
+
+.liked-modal-panel {
+  position: relative;
+  z-index: 1;
+  max-height: min(90vh, 720px);
+  width: min(96vw, 1040px);
+  border-radius: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 1.5rem;
+  box-shadow: 0 45px 120px rgba(15, 23, 42, 0.35);
+  overflow-y: auto;
+  animation: likedModalPanelIn var(--liked-modal-speed) ease forwards;
+}
+
+@media (min-width: 1024px) {
+  .liked-modal-panel {
+    padding: 2.5rem;
+  }
+}
+
+.liked-modal-panel.closing {
+  animation-name: likedModalPanelOut;
 }

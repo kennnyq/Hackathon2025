@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function NavBar() {
   const router = useRouter();
@@ -31,25 +32,46 @@ export default function NavBar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full backdrop-blur bg-white/80 border-b border-red-100/70 shadow-sm">
-      <nav className="mx-auto max-w-5xl px-4 py-3 flex items-center gap-4 text-slate-900">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <span className="h-3 w-3 rounded-full bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.6)]" /> ToyotaTinder
+    <header className="sticky top-0 z-50 w-full border-b border-red-100/70 bg-white/70 backdrop-blur-xl">
+      <nav className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-3 text-slate-900">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition hover:border-red-200"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
+            <Image src="/toyotatinder.png" alt="ToyotaTinder" width={28} height={28} className="h-6 w-6 object-contain" priority />
+          </span>
+          <span className="brand-wordmark text-lg font-semibold text-slate-900">ToyotaTinder</span>
         </Link>
-        <div className="ml-auto flex items-center gap-4 text-sm font-semibold">
-          <Link className="hover:text-red-600 transition-colors" href="/find">Find</Link>
-          <Link className="hover:text-red-600 transition-colors" href="/liked">Liked</Link>
-          <a className="hover:text-red-600 transition-colors" href="https://www.toyota.com/" target="_blank" rel="noreferrer">Toyota</a>
+
+        <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/80 px-2 py-1 text-sm font-semibold shadow-[0_12px_35px_rgba(15,23,42,0.08)]">
+          <Link className="nav-pill" href="/find">Find</Link>
+          <Link className="nav-pill" href="/liked">Liked</Link>
+          <a className="nav-pill" href="https://www.toyota.com/" target="_blank" rel="noreferrer">Toyota</a>
+          <a
+            className="nav-icon"
+            href="https://github.com/kennnyq/Hackathon2025"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Project GitHub"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+              <path
+                fill="currentColor"
+                d="M12 2c5.53 0 10 4.48 10 10.02 0 4.43-2.87 8.19-6.84 9.51-.5.09-.68-.22-.68-.48 0-.33.01-1.19.01-2.32 0-.79-.27-1.3-.58-1.56 2.23-.25 4.57-1.11 4.57-5 0-1.11-.39-2.01-1.03-2.72.1-.26.45-1.31-.1-2.73 0 0-.84-.27-2.75 1.04a9.35 9.35 0 0 0-5 0C8.69 6.18 7.85 6.45 7.85 6.45c-.55 1.42-.2 2.47-.1 2.73A3.71 3.71 0 0 0 6.72 12c0 3.87 2.33 4.75 4.55 5-.29.25-.55.7-.64 1.36-.58.26-2.05.7-2.95-.84 0 0-.54-.99-1.58-1.07 0 0-1.01-.01-.07.63 0 0 .68.32 1.15 1.52 0 0 .6 1.86 3.44 1.23 0 .88.01 1.71.01 1.97 0 .26-.18.57-.68.48A10.02 10.02 0 0 1 2 12.02C2 6.48 6.48 2 12 2Z"
+              />
+            </svg>
+          </a>
           {isAuthenticated ? (
             <button
               type="button"
               onClick={handleSignOut}
-              className="rounded-full border border-red-200 px-3 py-1 text-red-600 transition hover:border-red-400 hover:bg-red-50"
+              className="nav-pill border-red-200/80 text-red-600 hover:border-red-300"
             >
               Sign out
             </button>
           ) : (
-            <Link className="hover:text-red-600 transition-colors" href="/login">Log in</Link>
+            <Link className="nav-pill" href="/login">Log in</Link>
           )}
         </div>
       </nav>
