@@ -387,10 +387,86 @@ function promoteModelVariety(cars: Car[], limit = cars.length): Car[] {
   return diversified;
 }
 
+const MODEL_NAME_OVERRIDES: Array<{ regex: RegExp; key: string }> = [
+  { regex: /^corolla\s+cross/, key: 'corolla cross' },
+  { regex: /^crown\s+signia/, key: 'crown signia' },
+  { regex: /^grand\s+highlander/, key: 'grand highlander' },
+  { regex: /^land\s+cruiser/, key: 'land cruiser' },
+  { regex: /^gr\s*supra/, key: 'gr supra' },
+  { regex: /^gr\s*corolla/, key: 'gr corolla' },
+  { regex: /^gr\s*86/, key: 'gr86' },
+  { regex: /^c\s*-?\s*hr/, key: 'c-hr' },
+  { regex: /^b\s*z4x/, key: 'bz4x' },
+  { regex: /^prius\s+prime/, key: 'prius' },
+];
+
+const TRIM_TOKENS = new Set([
+  'le',
+  'se',
+  'l',
+  'xl',
+  'xle',
+  'xse',
+  'xe',
+  'limited',
+  'platinum',
+  'premium',
+  'nightshade',
+  'trd',
+  'trail',
+  'capstone',
+  'sr',
+  'sr5',
+  'sport',
+  'hybrid',
+  'prime',
+  'plugin',
+  'plug',
+  'phev',
+  'awd',
+  'fwd',
+  '2wd',
+  '4wd',
+  '4x4',
+  'edition',
+  'plus',
+  'cab',
+  'crew',
+  'double',
+  'access',
+  'base',
+  'standard',
+  'xlt',
+  'luxury',
+  'apex',
+]);
+
 function normalizeModelKey(model?: string | null) {
-  return (model || 'unknown')
+  if (!model) return 'unknown';
+  const normalized = model
     .toLowerCase()
-    .replace(/toyota\s+/g, '')
+    .replace(/toyota/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  if (!normalized) return 'unknown';
+
+  for (const { regex, key } of MODEL_NAME_OVERRIDES) {
+    if (regex.test(normalized)) return key;
+  }
+
+  const tokens = normalized.split(' ');
+  const baseTokens: string[] = [];
+  for (const token of tokens) {
+    const cleaned = token.replace(/[^a-z0-9]/g, '');
+    if (!cleaned) continue;
+    if (cleaned.length === 4 && /^\d+$/.test(cleaned)) continue; // skip years & 1794 trims
+    const isTrim = TRIM_TOKENS.has(cleaned);
+    if (!baseTokens.length && isTrim) continue;
+    if (baseTokens.length && isTrim) break;
+    baseTokens.push(cleaned);
+    if (baseTokens.length === 1) break;
+  }
+
+  return baseTokens.length ? baseTokens.join(' ') : normalized;
 }
