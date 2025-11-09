@@ -6,7 +6,7 @@ const FALLBACK_DESCRIPTION = 'Gemini could not generate a personalized note, but
 
 export default function CarCard({ car, className = '' }: { car: Car; className?: string }) {
   const wrapperClass = [
-    'card relative flex w-[320px] max-w-[360px] flex-col gap-4 overflow-hidden sm:w-[360px] h-[560px] max-h-[88vh]',
+    'card relative flex w-[320px] max-w-[360px] flex-col gap-3 overflow-hidden sm:w-[360px] max-h-[85vh]',
     className,
   ]
     .filter(Boolean)
@@ -44,7 +44,7 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
 
   return (
     <div className={wrapperClass}>
-      <div className="card-top space-y-4">
+      <div className="card-top space-y-3">
         <div className="card-image-wrapper">
           <Image
             src={imageSrc}
@@ -56,7 +56,7 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
           />
         </div>
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{category}</p>
             <h3 className="text-[1.65rem] leading-snug font-semibold text-slate-900">
@@ -70,18 +70,18 @@ export default function CarCard({ car, className = '' }: { car: Car; className?:
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-inner shadow-white/40">
+        <div className="rounded-2xl border border-slate-100 bg-white/85 px-4 py-3 shadow-inner shadow-white/40">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer & distance</p>
-          <p className="mt-2 text-base font-semibold text-slate-900">{dealerName}</p>
+          <p className="mt-1 text-base font-semibold text-slate-900">{dealerName}</p>
           <p className="text-sm text-slate-500">{dealerDetails || 'Share a zip code to unlock drive distance.'}</p>
         </div>
       </div>
 
-      <div className="card-content-scroll">
-        <div className="space-y-4">
+      <div className="card-bottom">
+        <div className="why-it-fits-scroll space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 text-sm text-slate-700 shadow-inner">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
-            <p className="mt-1 leading-relaxed">{description}</p>
+            <p className="mt-2 leading-relaxed">{description}</p>
           </div>
 
           {keyHighlights.length > 0 && (

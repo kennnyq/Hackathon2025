@@ -14,6 +14,12 @@
 .card-top {
   flex: 0 0 auto;
 }
+.card-bottom {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .card-image-wrapper {
   position: relative;
   width: 100%;
@@ -29,23 +35,26 @@
   object-fit: contain;
   object-position: center;
 }
-.card-content-scroll {
+.why-it-fits-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 0.3rem;
-  padding-bottom: 0.25rem;
+  padding-right: 0.35rem;
+  padding-bottom: 0.35rem;
+  padding-top: 0.35rem;
   scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
 }
-.card-content-scroll::-webkit-scrollbar {
+.why-it-fits-scroll::-webkit-scrollbar {
   width: 6px;
 }
-.card-content-scroll::-webkit-scrollbar-track {
+.why-it-fits-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
-.card-content-scroll::-webkit-scrollbar-thumb {
+.why-it-fits-scroll::-webkit-scrollbar-thumb {
   background: rgba(100, 116, 139, 0.35);
   border-radius: 999px;
 }
