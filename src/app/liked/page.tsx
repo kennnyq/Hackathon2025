@@ -1,27 +1,49 @@
 'use client';
+import CarDetailModal from '@/components/CarDetailModal';
 import NavBar from '@/components/NavBar';
+import { formatCurrency, getCategory } from '@/lib/carDisplay';
 import { getLikedCars, clearLikes } from '@/lib/likes';
 import { useEffect, useMemo, useState, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Car } from '@/lib/types';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { AnimatePresence, motion } from 'framer-motion';
 
 type SortKey = 'az' | 'price-asc' | 'price-desc' | 'mpg-asc' | 'mpg-desc';
 
 const MODAL_ANIMATION_MS = 240;
+const CURRENT_YEAR = new Date().getFullYear();
+const CONDITION_OPTIONS = ['Any', 'New', 'Used'] as const;
+const FUEL_TYPE_OPTIONS = ['Gas', 'Hybrid', 'Electric'] as const;
+type ConditionFilter = typeof CONDITION_OPTIONS[number];
+type FuelFilter = typeof FUEL_TYPE_OPTIONS[number];
+const CHILD_FADE_VARIANTS = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+  },
+} as const;
 
 export default function LikedPage() {
   useRequireAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>('az');
   const [priceRange, setPriceRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
+  const [conditionFilter, setConditionFilter] = useState<ConditionFilter>('Any');
+  const [yearMin, setYearMin] = useState('');
+  const [yearMax, setYearMax] = useState('');
+  const [seatsMin, setSeatsMin] = useState('');
+  const [seatsMax, setSeatsMax] = useState('');
+  const [mileageMin, setMileageMin] = useState('');
+  const [mileageMax, setMileageMax] = useState('');
+  const [selectedFuelTypes, setSelectedFuelTypes] = useState<FuelFilter[]>([]);
+  const [mpgMin, setMpgMin] = useState('');
+  const [mpgMax, setMpgMax] = useState('');
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [isModalVisible, setModalVisible] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,23 +69,99 @@ export default function LikedPage() {
   }, [cars]);
 
   const typeOptions = useMemo(() => countByCategory(cars), [cars]);
-  const seatingOptions = useMemo(() => countBySeating(cars), [cars]);
 
   const filteredCars = useMemo(() => {
     if (!cars.length) return [];
+    const yearMinValue = parseNumberInput(yearMin);
+    const yearMaxValue = parseNumberInput(yearMax);
+    const seatsMinValue = parseNumberInput(seatsMin);
+    const seatsMaxValue = parseNumberInput(seatsMax);
+    const mileageMinValue = parseNumberInput(mileageMin);
+    const mileageMaxValue = parseNumberInput(mileageMax);
+    const mpgMinValue = parseNumberInput(mpgMin);
+    const mpgMaxValue = parseNumberInput(mpgMax);
+
     return cars.filter(car => {
       const category = getCategory(car);
       const seat = typeof car.Seating === 'number' ? car.Seating : null;
+      const mileage = typeof car.Mileage === 'number' ? car.Mileage : null;
+      const carYear = typeof car.Year === 'number' ? car.Year : null;
+      const averageMpg = getAverageMpg(car);
+      const fuelCategory = getFuelCategory(car);
+
       const matchesType = !selectedTypes.length || selectedTypes.includes(category);
-      const matchesSeats = !selectedSeats.length || (seat !== null && selectedSeats.includes(seat));
+
+      const matchesCondition =
+        conditionFilter === 'Any' ||
+        (conditionFilter === 'New' ? !car.Used : car.Used);
+
+      const matchesYear = (() => {
+        if (yearMinValue === null && yearMaxValue === null) return true;
+        if (carYear === null) return false;
+        if (yearMinValue !== null && carYear < yearMinValue) return false;
+        if (yearMaxValue !== null && carYear > yearMaxValue) return false;
+        return true;
+      })();
+
+      const matchesSeatsRange = (() => {
+        if (seatsMinValue === null && seatsMaxValue === null) return true;
+        if (seat === null) return false;
+        if (seatsMinValue !== null && seat < seatsMinValue) return false;
+        if (seatsMaxValue !== null && seat > seatsMaxValue) return false;
+        return true;
+      })();
+
+      const matchesMileage = (() => {
+        if (mileageMinValue === null && mileageMaxValue === null) return true;
+        if (mileage === null) return false;
+        if (mileageMinValue !== null && mileage < mileageMinValue) return false;
+        if (mileageMaxValue !== null && mileage > mileageMaxValue) return false;
+        return true;
+      })();
+
+      const matchesFuel = !selectedFuelTypes.length || selectedFuelTypes.includes(fuelCategory);
+
+      const matchesMpg = (() => {
+        if (mpgMinValue === null && mpgMaxValue === null) return true;
+        if (averageMpg === null) return false;
+        if (mpgMinValue !== null && averageMpg < mpgMinValue) return false;
+        if (mpgMaxValue !== null && averageMpg > mpgMaxValue) return false;
+        return true;
+      })();
+
       const defaultMin = priceLimits.min;
       const defaultMax = priceLimits.max || priceLimits.min;
       const minPrice = roundDownToThousand(priceRange.min ?? defaultMin);
       const maxPrice = roundUpToThousand(priceRange.max ?? defaultMax ?? minPrice);
       const matchesPrice = car.Price >= minPrice && car.Price <= maxPrice;
-      return matchesType && matchesSeats && matchesPrice;
+
+      return (
+        matchesType &&
+        matchesCondition &&
+        matchesYear &&
+        matchesSeatsRange &&
+        matchesMileage &&
+        matchesFuel &&
+        matchesMpg &&
+        matchesPrice
+      );
     });
-  }, [cars, selectedSeats, selectedTypes, priceRange, priceLimits]);
+  }, [
+    cars,
+    selectedTypes,
+    priceRange,
+    priceLimits,
+    conditionFilter,
+    yearMin,
+    yearMax,
+    seatsMin,
+    seatsMax,
+    mileageMin,
+    mileageMax,
+    selectedFuelTypes,
+    mpgMin,
+    mpgMax,
+  ]);
 
   const sortedCars = useMemo(() => {
     const list = [...filteredCars];
@@ -85,7 +183,6 @@ export default function LikedPage() {
   const effectiveMinPrice = roundDownToThousand(priceRange.min ?? priceLimits.min);
   const effectiveMaxPrice = roundUpToThousand(priceRange.max ?? priceLimits.max ?? effectiveMinPrice);
   const disablePriceControls = !cars.length || priceLimits.min === priceLimits.max;
-  const hasEnoughForComparison = cars.length >= 2;
 
   const toggleFilters = () => setFiltersOpen(prev => !prev);
 
@@ -93,8 +190,8 @@ export default function LikedPage() {
     setSelectedTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
   }
 
-  function toggleSeat(seat: number) {
-    setSelectedSeats(prev => prev.includes(seat) ? prev.filter(s => s !== seat) : [...prev, seat]);
+  function toggleFuelType(type: FuelFilter) {
+    setSelectedFuelTypes(prev => prev.includes(type) ? prev.filter(value => value !== type) : [...prev, type]);
   }
 
   function updateMinPrice(value: number) {
@@ -117,20 +214,22 @@ export default function LikedPage() {
     });
   }
 
-  function resetFilters() {
-    setSelectedTypes([]);
-    setSelectedSeats([]);
-    setSortBy('az');
-    setPriceRange({ min: priceLimits.min, max: priceLimits.max });
-  }
-
   function handleClearLikes() {
     clearLikes();
     setCars([]);
     setPriceRange({ min: null, max: null });
     setSelectedTypes([]);
-    setSelectedSeats([]);
     setSortBy('az');
+    setConditionFilter('Any');
+    setYearMin('');
+    setYearMax('');
+    setSeatsMin('');
+    setSeatsMax('');
+    setMileageMin('');
+    setMileageMax('');
+    setSelectedFuelTypes([]);
+    setMpgMin('');
+    setMpgMax('');
     setSelectedCar(null);
     setModalVisible(false);
   }
@@ -153,156 +252,287 @@ export default function LikedPage() {
     return () => clearTimeout(timeout);
   }, [isModalVisible, selectedCar]);
 
-  useEffect(() => {
-    if (!selectedCar) return;
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setModalVisible(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
-  }, [selectedCar]);
-
-  useEffect(() => {
-    if (!selectedCar) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [selectedCar]);
-
 
   return (
     <main>
       <NavBar />
-      <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
-        <header className="text-center">
+      <motion.section
+        className="mx-auto max-w-6xl px-4 pt-12 pb-24"
+        initial={{ opacity: 0, y: 24, filter: 'blur(2px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.header className="text-center" variants={CHILD_FADE_VARIANTS}>
           <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
           <h1 className="mt-3 text-4xl font-bold text-slate-900">Find your saved Toyotas</h1>
           <p className="mt-2 text-slate-600">Dial in seating, budget, and body style filters to revisit the Toyotas you loved.</p>
-        </header>
+        </motion.header>
 
-        <div className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10">
-          <div className="grid gap-10 lg:grid-cols-[280px,1fr]">
-            <aside className="border-r border-slate-100 pr-0 lg:pr-8">
-              <div className="flex items-center justify-between pb-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+          <motion.div
+            className="mt-10 rounded-[36px] border border-slate-200 bg-white/90 p-6 shadow-[0_30px_70px_rgba(15,23,42,0.12)] backdrop-blur supports-[backdrop-filter]:backdrop-blur-xl lg:p-10"
+            variants={CHILD_FADE_VARIANTS}
+          >
+            <motion.div className="grid gap-10 lg:grid-cols-[280px,1fr]" variants={CHILD_FADE_VARIANTS}>
+              <motion.aside className="border-r border-slate-100 pr-0 lg:pr-8" variants={CHILD_FADE_VARIANTS}>
+                <div className="flex items-center justify-between pb-4">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-slate-900">Filters</h2>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-red-200 hover:text-red-500"
+                      aria-label={filtersOpen ? 'Collapse filters' : 'Expand filters'}
+                      aria-expanded={filtersOpen}
+                      onClick={toggleFilters}
+                    >
+                      <motion.span animate={{ rotate: filtersOpen ? 180 : 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }}>
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </motion.span>
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-red-200 hover:text-red-500"
-                    aria-label={filtersOpen ? 'Collapse filters' : 'Expand filters'}
-                    aria-expanded={filtersOpen}
-                    onClick={toggleFilters}
+                    className="btn btn-primary text-sm px-4 py-2"
+                    onClick={handleClearLikes}
                   >
-                    <motion.span animate={{ rotate: filtersOpen ? 180 : 0 }} transition={{ duration: 0.2, ease: 'easeInOut' }}>
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </motion.span>
+                    Clear liked cars
                   </button>
                 </div>
-                <button className="text-sm font-semibold text-red-600 hover:underline" onClick={resetFilters}>
-                  Reset
-                </button>
-              </div>
-              <AnimatePresence initial={false}>
-                {filtersOpen && (
-                  <motion.div
-                    key="filters-content"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-6 pt-2">
-                      <section>
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Vehicles</h3>
-                        {typeOptions.length === 0 && <p className="mt-3 text-sm text-slate-500">No vehicle types tracked yet.</p>}
-                        <div className="mt-3 space-y-2">
-                          {typeOptions.map(([type, count]) => (
-                            <FilterCheckbox
-                              key={type}
-                              label={`${type} (${count})`}
-                              checked={selectedTypes.includes(type)}
-                              onChange={() => toggleType(type)}
-                            />
-                          ))}
-                        </div>
-                      </section>
-
-                      <section>
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Price (MSRP)</h3>
-                        <div className="mt-3 space-y-4">
-                          <div className="flex flex-col gap-3">
-                            <input
-                              type="range"
-                              min={priceLimits.min}
-                              max={priceLimits.max || priceLimits.min + 1}
-                              value={effectiveMinPrice}
-                              step={1000}
-                              onChange={e => updateMinPrice(Number(e.target.value))}
-                              className="w-full accent-red-500"
-                              disabled={disablePriceControls}
-                            />
-                            <input
-                              type="range"
-                              min={priceLimits.min}
-                              max={priceLimits.max || priceLimits.min + 1}
-                              value={effectiveMaxPrice}
-                              step={1000}
-                              onChange={e => updateMaxPrice(Number(e.target.value))}
-                              className="w-full accent-red-500"
-                              disabled={disablePriceControls}
-                            />
+                <AnimatePresence initial={false}>
+                  {filtersOpen && (
+                    <motion.div
+                      key="filters-content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-8 pt-4">
+                        <div className="space-y-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="label" htmlFor="liked-price-min">Price from</label>
+                              <div className="relative">
+                                <span className="input-prefix">$</span>
+                                <input
+                                  id="liked-price-min"
+                                  type="number"
+                                  min={0}
+                                  step={1000}
+                                  value={effectiveMinPrice}
+                                  onChange={e => updateMinPrice(Number(e.target.value))}
+                                  disabled={disablePriceControls}
+                                  className="input input--with-prefix"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="liked-price-max">Price to</label>
+                              <div className="relative">
+                                <span className="input-prefix">$</span>
+                                <input
+                                  id="liked-price-max"
+                                  type="number"
+                                  min={0}
+                                  step={1000}
+                                  value={effectiveMaxPrice}
+                                  onChange={e => updateMaxPrice(Number(e.target.value))}
+                                  disabled={disablePriceControls}
+                                  className="input input--with-prefix"
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <PriceInput label="Min" value={effectiveMinPrice} onChange={val => updateMinPrice(val)} disabled={!cars.length} />
-                            <PriceInput label="Max" value={effectiveMaxPrice} onChange={val => updateMaxPrice(val)} disabled={!cars.length} />
+                          <div>
+                            <p className="label mb-2">Condition</p>
+                            <div role="group" aria-label="Condition filters" className="flex flex-wrap gap-2">
+                              {CONDITION_OPTIONS.map(option => (
+                                <label key={option} className="cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="liked-condition"
+                                    value={option}
+                                    className="sr-only peer"
+                                    checked={conditionFilter === option}
+                                    onChange={() => setConditionFilter(option)}
+                                  />
+                                  <span className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                                    {option}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </section>
 
-                      <section>
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Available seating</h3>
-                        {seatingOptions.length === 0 && <p className="mt-3 text-sm text-slate-500">No seating data captured yet.</p>}
-                        <div className="mt-3 space-y-2">
-                          {seatingOptions.map(([seat, count]) => (
-                            <FilterCheckbox
-                              key={seat}
-                              label={`${seat} (${count})`}
-                              checked={selectedSeats.includes(seat)}
-                              onChange={() => toggleSeat(seat)}
-                            />
-                          ))}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="label mb-2">Body type</p>
+                            {typeOptions.length === 0 && <p className="text-sm text-slate-500">No vehicle types tracked yet.</p>}
+                            <div role="group" aria-label="Body type filters" className="flex flex-wrap gap-2">
+                              {typeOptions.map(([type, count]) => {
+                                const checked = selectedTypes.includes(type);
+                                return (
+                                  <label key={type} className="cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      checked={checked}
+                                      onChange={() => toggleType(type)}
+                                    />
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                                      <span>{type}</span>
+                                      <span className="text-xs text-slate-400">({count})</span>
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="label" htmlFor="liked-year-min">Year from</label>
+                              <input
+                                id="liked-year-min"
+                                className="input"
+                                type="number"
+                                min={1995}
+                                value={yearMin}
+                                onChange={e => setYearMin(e.target.value)}
+                                placeholder="2018"
+                              />
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="liked-year-max">Year to</label>
+                              <input
+                                id="liked-year-max"
+                                className="input"
+                                type="number"
+                                min={1995}
+                                value={yearMax}
+                                onChange={e => setYearMax(e.target.value)}
+                                placeholder={CURRENT_YEAR.toString()}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="label" htmlFor="liked-seats-min">Seats from</label>
+                              <input
+                                id="liked-seats-min"
+                                className="input"
+                                type="number"
+                                min={2}
+                                max={9}
+                                value={seatsMin}
+                                onChange={e => setSeatsMin(e.target.value)}
+                                placeholder="5"
+                              />
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="liked-seats-max">Seats to</label>
+                              <input
+                                id="liked-seats-max"
+                                className="input"
+                                type="number"
+                                min={2}
+                                max={9}
+                                value={seatsMax}
+                                onChange={e => setSeatsMax(e.target.value)}
+                                placeholder="8"
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </section>
 
-                      <div className="space-y-3">
-                        <button className="btn btn-outline w-full" onClick={handleClearLikes}>Clear liked cars</button>
-                        <Link href="/compare" className="btn btn-ghost w-full text-sm text-slate-500 hover:text-red-600 text-center">
-                          Open compare page
-                        </Link>
-                        {hasEnoughForComparison ? (
-                          <p className="text-xs text-slate-500 text-center">
-                            Launch the compare page to stack any two favorites.
-                          </p>
-                        ) : (
-                          <p className="text-xs text-slate-500 text-center">
-                            Save at least two vehicles to unlock the compare experience.
-                          </p>
-                        )}
+                        <div className="space-y-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="label" htmlFor="liked-mileage-min">Mileage from</label>
+                              <input
+                                id="liked-mileage-min"
+                                className="input"
+                                type="number"
+                                min={0}
+                                step={5000}
+                                value={mileageMin}
+                                onChange={e => setMileageMin(e.target.value)}
+                                placeholder="15000"
+                              />
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="liked-mileage-max">Mileage to</label>
+                              <input
+                                id="liked-mileage-max"
+                                className="input"
+                                type="number"
+                                min={0}
+                                step={5000}
+                                value={mileageMax}
+                                onChange={e => setMileageMax(e.target.value)}
+                                placeholder="60000"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <p className="label mb-2">Fuel type</p>
+                            <div role="group" aria-label="Fuel type filters" className="flex flex-wrap gap-2">
+                              {FUEL_TYPE_OPTIONS.map(type => {
+                                const checked = selectedFuelTypes.includes(type);
+                                return (
+                                  <label key={type} className="cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      checked={checked}
+                                      onChange={() => toggleFuelType(type)}
+                                    />
+                                    <span className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-red-200 peer-checked:border-red-300 peer-checked:bg-red-50 peer-checked:text-red-600">
+                                      {type}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="label" htmlFor="liked-mpg-min">MPG from</label>
+                              <input
+                                id="liked-mpg-min"
+                                className="input"
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={mpgMin}
+                                onChange={e => setMpgMin(e.target.value)}
+                                placeholder="30"
+                              />
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="liked-mpg-max">MPG to</label>
+                              <input
+                                id="liked-mpg-max"
+                                className="input"
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={mpgMax}
+                                onChange={e => setMpgMax(e.target.value)}
+                                placeholder="45"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </aside>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.aside>
 
-            <div>
+              <motion.div className="space-y-6" variants={CHILD_FADE_VARIANTS}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Matches</p>
@@ -340,11 +570,11 @@ export default function LikedPage() {
                     ))}
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-        </section>
-        {selectedCar && (
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </motion.section>
+      {selectedCar && (
           <CarDetailModal
             car={selectedCar}
             closing={!isModalVisible}
@@ -353,10 +583,6 @@ export default function LikedPage() {
         )}
       </main>
   );
-}
-
-function getCategory(car: Car) {
-  return car.VehicleCategory || car.Type || 'Other';
 }
 
 function countByCategory(cars: Car[]): [string, number][] {
@@ -368,50 +594,24 @@ function countByCategory(cars: Car[]): [string, number][] {
   return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-function countBySeating(cars: Car[]): [number, number][] {
-  const map = new Map<number, number>();
-  cars.forEach(car => {
-    if (typeof car.Seating !== 'number') return;
-    map.set(car.Seating, (map.get(car.Seating) ?? 0) + 1);
-  });
-  return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
-}
-
 function clamp(value: number, min: number, max: number) {
   if (max < min) return min;
   if (Number.isNaN(value)) return min;
   return Math.max(min, Math.min(max, value));
 }
 
-function FilterCheckbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
-      <input
-        type="checkbox"
-        className="h-4 w-4 rounded border-slate-400 text-red-500 focus:ring-red-200"
-        checked={checked}
-        onChange={onChange}
-      />
-      <span>{label}</span>
-    </label>
-  );
+function parseNumberInput(value: string): number | null {
+  if (typeof value !== 'string') return null;
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-function PriceInput({ label, value, onChange, disabled }: { label: string; value: number; onChange: (val: number) => void; disabled: boolean }) {
-  return (
-    <label className="flex flex-1 flex-col text-sm font-semibold text-slate-600">
-      {label}
-      <input
-        type="number"
-        className="mt-1 rounded-xl border border-slate-200 px-3 py-2 text-base font-normal text-slate-900 focus:border-red-500 focus:ring-2 focus:ring-red-200"
-        value={value}
-        min={0}
-        step={1000}
-        onChange={e => onChange(Number(e.target.value))}
-        disabled={disabled}
-      />
-    </label>
-  );
+function getFuelCategory(car: Car): FuelFilter {
+  const raw = (car['Fuel Type'] || car.FuelType || '').toLowerCase();
+  if (raw.includes('hybrid')) return 'Hybrid';
+  if (raw.includes('electric')) return 'Electric';
+  return 'Gas';
 }
 
 function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
@@ -442,7 +642,7 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={handleKeyDown}
-      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_20px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_35px_65px_rgba(244,63,94,0.25)] focus:outline-none focus:ring-2 focus:ring-red-300"
+      className="group h-full rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_24px_50px_rgba(244,63,94,0.18)] focus:outline-none focus:ring-2 focus:ring-red-300"
     >
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
         <span>{category}</span>
@@ -497,168 +697,6 @@ function VehicleCard({ car, onSelect }: { car: Car; onSelect: () => void }) {
   );
 }
 
-function CarDetailModal({ car, closing, onRequestClose }: { car: Car; closing: boolean; onRequestClose: () => void }) {
-  const headingId = `liked-car-modal-${car.Id}`;
-  const currency = formatCurrency(car.Price);
-  const mpg = car.MPG || '—';
-  const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : 'Seating TBD';
-  const fuel = car['Fuel Type'] || car.FuelType || 'Fuel';
-  const drivetrain = car.Drivetrain || 'Drivetrain TBD';
-  const exterior = car.ExteriorColor || 'Exterior TBD';
-  const interior = car.InteriorColor || 'Interior TBD';
-  const highlights = buildHighlights(car);
-  const category = getCategory(car);
-  const badge = car.Used ? 'Certified Used' : fuel;
-  const imgSrc = car.ImageUrl || '/car-placeholder.svg';
-  const modelUrl = car.ModelUrl;
-  const whyItFits = car.FitDescription || 'Reasoning unavailable. Check back soon!';
-  const dealerName = car.Dealer || 'Dealer pending';
-  const dealerCity = car.DealerCity && car.DealerState ? `${car.DealerCity}, ${car.DealerState}` : car.DealerCity || null;
-  const distanceText = car.DistanceLabel || (typeof car.DistanceMiles === 'number' ? `${car.DistanceMiles.toFixed(1)} mi away` : null);
-  const dealerDetails = [dealerCity, distanceText].filter(Boolean).join(' • ');
-  const dealerWebsite = car.DealerWebsite;
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6 md:p-10">
-      <div
-        className={`liked-modal-overlay${closing ? ' closing' : ''}`}
-        onClick={onRequestClose}
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={headingId}
-        className={`liked-modal-panel relative flex flex-col gap-8 lg:flex-row${closing ? ' closing' : ''}`}
-        onClick={event => event.stopPropagation()}
-      >
-        <button
-          type="button"
-          aria-label="Close details"
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-red-200 hover:text-red-500"
-          onClick={onRequestClose}
-        >
-          <span className="text-2xl leading-none">×</span>
-        </button>
-
-        <div className="space-y-6 lg:w-[40%]">
-          <div className="rounded-[32px] border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-6 shadow-[0_25px_55px_rgba(15,23,42,0.12)]">
-            <Image
-              src={imgSrc}
-              alt={`${car.Year} ${car.Model}`}
-              width={480}
-              height={320}
-              className="h-64 w-full object-contain"
-            />
-          </div>
-          <div className="rounded-[26px] border border-slate-100 bg-white/80 p-4 text-sm text-slate-500 shadow-[inset_0_1px_0_rgba(15,23,42,0.04)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Snapshot</p>
-            <p className="mt-2"><span className="font-semibold text-slate-800">Drivetrain:</span> {drivetrain}</p>
-            <p><span className="font-semibold text-slate-800">Fuel:</span> {fuel}</p>
-            <p><span className="font-semibold text-slate-800">Exterior:</span> {exterior}</p>
-            <p><span className="font-semibold text-slate-800">Interior:</span> {interior}</p>
-          </div>
-        </div>
-
-        <div className="flex-1 space-y-8">
-          <div>
-            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-              <span>{category}</span>
-              <span className="rounded-full border border-slate-200 px-3 py-1 tracking-[0.2em] text-slate-500">{badge}</span>
-            </div>
-            <h2 id={headingId} className="mt-3 text-3xl font-semibold text-slate-900">{car.Year} {car.Model}</h2>
-            <p className="mt-1 text-sm text-slate-500">{car.Used ? 'Certified pre-owned listing' : 'Factory-new configuration'}</p>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <StatCard label="Price" value={currency} helper={car.Used ? 'Current offer' : 'Starting MSRP *'} />
-              <StatCard label="MPG range" value={mpg} helper="Est. combined" />
-              <StatCard label="Seating" value={seating} helper="Capacity" />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DetailPill label="Drivetrain" value={drivetrain} />
-            <DetailPill label="Fuel Type" value={fuel} />
-            <DetailPill label="Exterior Color" value={exterior} />
-            <DetailPill label="Interior Color" value={interior} />
-          </div>
-
-          <div className="space-y-4 rounded-[36px] border border-slate-100 bg-white/85 p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-red-500">Why it fits</p>
-              <p className="mt-2 text-base text-slate-700">{whyItFits}</p>
-            </div>
-            <div className="rounded-[24px] border border-slate-100 bg-slate-50/80 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Dealer</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">{dealerName}</p>
-              <p className="text-sm text-slate-500">{dealerDetails || 'Distance visible after sharing a zip code.'}</p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {dealerWebsite && (
-                  <a href={dealerWebsite} target="_blank" rel="noreferrer" className="btn btn-primary px-4 py-2 text-sm">
-                    Reach out to dealer
-                  </a>
-                )}
-                {modelUrl && (
-                  <a href={modelUrl} target="_blank" rel="noreferrer" className="btn btn-outline px-4 py-2 text-sm">
-                    Explore
-                  </a>
-                )}
-              </div>
-            </div>
-            {highlights.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Key highlights</p>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                  {highlights.map(item => (
-                    <li key={item.label} className="flex items-start gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden="true" />
-                      <span><span className="font-semibold">{item.label}:</span> {item.value}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
-  return (
-    <div className="rounded-[28px] border border-slate-100 bg-white/90 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.09)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-      <p className="text-xs text-slate-500">{helper}</p>
-    </div>
-  );
-}
-
-function DetailPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[26px] border border-slate-200/80 bg-white/80 px-4 py-3 text-sm text-slate-600">
-      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{label}</p>
-      <p className="mt-1 text-base font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function buildHighlights(car: Car) {
-  const seating = typeof car.Seating === 'number' ? `${car.Seating} seats` : null;
-  return [
-    { label: 'Mileage', value: typeof car.Mileage === 'number' ? `${car.Mileage.toLocaleString()} mi` : null },
-    { label: 'Drivetrain', value: car.Drivetrain },
-    { label: 'Fuel', value: car['Fuel Type'] || car.FuelType },
-    { label: 'MPG', value: car.MPG },
-    { label: 'Seating', value: seating },
-    { label: 'Exterior', value: car.ExteriorColor },
-    { label: 'Interior', value: car.InteriorColor },
-  ]
-    .filter(item => Boolean(item.value))
-    .map(item => ({ label: item.label, value: item.value as string }));
-}
-
 function getAverageMpg(car: Car): number | null {
   if (!car.MPG) return null;
   const cleaned = car.MPG.replace(/[^0-9.–-]/g, '');
@@ -676,11 +714,6 @@ function compareMpg(a: Car, b: Car, direction: 'asc' | 'desc') {
   if (mpgA === null) return 1;
   if (mpgB === null) return -1;
   return direction === 'asc' ? mpgA - mpgB : mpgB - mpgA;
-}
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
 }
 
 function roundDownToThousand(value: number) {

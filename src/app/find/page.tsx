@@ -29,7 +29,7 @@ const INITIAL_RECOMMENDATION_LIMIT = 30;
 type SectionKey = 'price' | 'body' | 'efficiency';
 
 const FORM_VARIANTS = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 12 },
   show: {
     opacity: 1,
     y: 0,
@@ -49,7 +49,7 @@ const HEADING_VARIANTS = {
 } as const;
 
 const CARD_VARIANTS = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: { opacity: 0, y: 10 },
   show: {
     opacity: 1,
     y: 0,
@@ -63,7 +63,7 @@ const STACK_VARIANTS = {
 } as const;
 
 const FIELD_VARIANTS = {
-  hidden: { opacity: 0, y: 8 },
+  hidden: { opacity: 0, y: 4 },
   show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
 } as const;
 
@@ -247,13 +247,13 @@ export default function FindPage() {
             <motion.div className="space-y-4" variants={STACK_VARIANTS}>
               <motion.div variants={FIELD_VARIANTS}>
                 <PreferenceSection
-                id="price"
-                title="Price & condition"
-                isOpen={openSections.price}
-                onToggle={toggleSection}
-              >
-                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
-                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
+                  id="price"
+                  title="Price & condition"
+                  isOpen={openSections.price}
+                  onToggle={toggleSection}
+                >
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="label" htmlFor="priceMin">Price from</label>
                         <div className="relative">
@@ -268,8 +268,8 @@ export default function FindPage() {
                           <input className="input input--with-prefix" id="priceMax" name="priceMax" type="number" min={0} step={1} placeholder="50000" />
                         </div>
                       </div>
-                    </motion.div>
-                    <motion.div variants={FIELD_VARIANTS}>
+                    </div>
+                    <div>
                       <p className="label mb-2">Condition</p>
                       <div role="group" aria-label="Condition options" className="flex flex-wrap gap-2">
                         {CONDITION_OPTIONS.map(option => (
@@ -281,8 +281,8 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 </PreferenceSection>
               </motion.div>
 
@@ -293,8 +293,8 @@ export default function FindPage() {
                   isOpen={openSections.body}
                   onToggle={toggleSection}
                 >
-                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
-                    <motion.div variants={FIELD_VARIANTS}>
+                  <div className="space-y-4">
+                    <div>
                       <p className="label mb-2">Body type</p>
                       <div role="group" aria-label="Body type options" className="flex flex-wrap gap-2">
                         {BODY_TYPE_OPTIONS.map(type => (
@@ -306,8 +306,8 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </motion.div>
-                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="label" htmlFor="yearMin">Year from</label>
                         <input className="input" id="yearMin" name="yearMin" type="number" min={2008} max={CURRENT_YEAR} placeholder="2018" />
@@ -316,8 +316,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="yearMax">Year to</label>
                         <input className="input" id="yearMax" name="yearMax" type="number" min={2008} max={CURRENT_YEAR} placeholder={CURRENT_YEAR.toString()} />
                       </div>
-                    </motion.div>
-                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="label" htmlFor="seatsMin">Seats from</label>
                         <input className="input" id="seatsMin" name="seatsMin" type="number" min={2} max={9} placeholder="5" />
@@ -326,8 +326,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="seatsMax">Seats to</label>
                         <input className="input" id="seatsMax" name="seatsMax" type="number" min={2} max={9} placeholder="8" />
                       </div>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 </PreferenceSection>
               </motion.div>
 
@@ -338,8 +338,8 @@ export default function FindPage() {
                   isOpen={openSections.efficiency}
                   onToggle={toggleSection}
                 >
-                  <motion.div className="space-y-4" variants={STACK_VARIANTS}>
-                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="label" htmlFor="mileageMin">Mileage from</label>
                         <input className="input" id="mileageMin" name="mileageMin" type="number" min={0} step={5000} placeholder="15000" />
@@ -348,8 +348,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="mileageMax">Mileage to</label>
                         <input className="input" id="mileageMax" name="mileageMax" type="number" min={0} step={5000} placeholder="60000" />
                       </div>
-                    </motion.div>
-                    <motion.div variants={FIELD_VARIANTS}>
+                    </div>
+                    <div>
                       <p className="label mb-2">Fuel type</p>
                       <div role="group" aria-label="Fuel type options" className="flex flex-wrap gap-2">
                         {FUEL_TYPE_OPTIONS.map(type => (
@@ -361,8 +361,8 @@ export default function FindPage() {
                           </label>
                         ))}
                       </div>
-                    </motion.div>
-                    <motion.div className="grid gap-4 md:grid-cols-2" variants={FIELD_VARIANTS}>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="label" htmlFor="mpgMin">MPG from</label>
                         <input className="input" id="mpgMin" name="mpgMin" type="number" min={0} max={80} placeholder="30" />
@@ -371,8 +371,8 @@ export default function FindPage() {
                         <label className="label" htmlFor="mpgMax">MPG to</label>
                         <input className="input" id="mpgMax" name="mpgMax" type="number" min={0} max={80} placeholder="45" />
                       </div>
-                    </motion.div>
-                    <motion.div variants={FIELD_VARIANTS}>
+                    </div>
+                    <div>
                       <label className="label" htmlFor="zipCode">Your zip code</label>
                       <div className="grid gap-2 md:grid-cols-[160px]">
                         <input
@@ -386,22 +386,22 @@ export default function FindPage() {
                           maxLength={5}
                         />
                       </div>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 </PreferenceSection>
               </motion.div>
             </motion.div>
 
-              <motion.div variants={FIELD_VARIANTS}>
-                <label className="label" htmlFor="notes">What else should we know?</label>
-                <textarea
-                  className="textarea"
-                  id="notes"
-                  name="notes"
-                  rows={4}
-                  placeholder="Give a large, spacious family car that would be good for roadtrips."
-                />
-              </motion.div>
+            <motion.div variants={FIELD_VARIANTS}>
+              <label className="label" htmlFor="notes">What else should we know?</label>
+              <textarea
+                className="textarea"
+                id="notes"
+                name="notes"
+                rows={4}
+                placeholder="Give a large, spacious family car that would be good for roadtrips."
+              />
+            </motion.div>
           </motion.section>
 
           <motion.div className="flex flex-col items-center gap-2 text-center" variants={FIELD_VARIANTS}>

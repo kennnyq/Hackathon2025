@@ -4,6 +4,7 @@ import { type ChangeEvent, type ReactNode, useEffect, useMemo, useState } from '
 import Image from 'next/image';
 import Link from 'next/link';
 import NavBar from '@/components/NavBar';
+import { formatCurrency, getCategory } from '@/lib/carDisplay';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { getLikedCars } from '@/lib/likes';
 import { Car } from '@/lib/types';
@@ -122,7 +123,7 @@ export default function ComparePage() {
     <main>
       <NavBar />
       <section className="mx-auto max-w-6xl px-4 pt-12 pb-24">
-        <header className="text-center">
+        <header className="page-fade-in text-center" style={{ animationDelay: '0s' }}>
           <p className="text-sm uppercase tracking-[0.45em] text-red-500">Toyota Vehicles</p>
           <h1 className="mt-3 text-4xl font-bold text-slate-900">Compare your top Toyotas</h1>
           <p className="mt-2 text-slate-600">
@@ -134,7 +135,7 @@ export default function ComparePage() {
           <EmptyState />
         ) : (
           <div className="mt-10 space-y-8">
-            <div className="rounded-[32px] border border-slate-200 bg-white/80 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] lg:p-8">
+            <div className="page-fade-in rounded-[32px] border border-slate-200 bg-white/80 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] lg:p-8" style={{ animationDelay: '0.12s' }}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                 <SelectControl
                   id="primary-car"
@@ -146,7 +147,7 @@ export default function ComparePage() {
                 <button
                   type="button"
                   aria-label="Swap selected vehicles"
-                  className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:text-red-500 lg:mx-0"
+                  className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-500 transition hover:cursor-pointer hover:text-red-500 lg:mx-0 lg:self-center lg:translate-y-3"
                   onClick={swapSelections}
                 >
                   <SwapIcon />
@@ -162,14 +163,14 @@ export default function ComparePage() {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <CarSummaryCard car={primaryCar} />
-              <CarSummaryCard car={secondaryCar} />
-            </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <CarSummaryCard car={primaryCar} delay={0.18} />
+                <CarSummaryCard car={secondaryCar} delay={0.22} />
+              </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <VehicleStatsTable car={primaryCar} />
-              <VehicleStatsTable car={secondaryCar} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <VehicleStatsTable car={primaryCar} delay={0.26} />
+                <VehicleStatsTable car={secondaryCar} delay={0.3} />
             </div>
           </div>
         )}
@@ -217,23 +218,20 @@ function SelectControl({
   );
 }
 
-function CarSummaryCard({ car }: { car: Car | null }) {
+function CarSummaryCard({ car, delay = 0 }: { car: Car | null; delay?: number }) {
   const price = car ? formatCurrency(car.Price) : null;
   const imgSrc = car?.ImageUrl || '/car-placeholder.svg';
-  const badge = car ? (car.Used ? 'Certified Used' : getFuelType(car) || 'New') : 'Select a car';
   const seating = formatSeating(car);
   const mpg = car?.MPG ?? '—';
-  const category = car ? getCategory(car) : '—';
 
   return (
-    <div className="rounded-[32px] border border-slate-200 bg-gradient-to-b from-white to-slate-50/60 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+    <div
+      className="page-fade-in rounded-[32px] border border-slate-200 bg-gradient-to-b from-white to-slate-50/60 p-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)]"
+      style={{ animationDelay: `${delay}s` }}
+    >
       {car ? (
         <>
-          <div className="mt-2 flex flex-wrap items-center justify-between text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-            <span>{category}</span>
-            <span className="rounded-full border border-slate-200 px-3 py-1 tracking-[0.2em] text-slate-500">{badge}</span>
-          </div>
-          <div className="mt-4 flex h-48 items-center justify-center rounded-[28px] bg-white">
+          <div className="mt-2 flex h-48 items-center justify-center rounded-[28px] bg-white">
             <Image src={imgSrc} alt={`${car.Year} ${car.Model}`} width={360} height={200} className="h-full w-full object-contain" />
           </div>
           <h2 className="mt-4 text-2xl font-semibold text-slate-900">{car.Year} {car.Model}</h2>
@@ -262,26 +260,35 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function VehicleStatsTable({ car }: { car: Car | null }) {
+function VehicleStatsTable({ car, delay = 0 }: { car: Car | null; delay?: number }) {
   const heading = car ? `${car.Year} ${car.Model}` : 'Select a vehicle';
   const subheading = car ? (car.Used ? 'Pre-owned listing' : 'Factory-new configuration') : 'Pick a vehicle to view stats.';
   const valueClass = car ? 'text-slate-900' : 'text-slate-300';
   return (
-    <div className="rounded-[32px] border border-slate-200 bg-white/90 shadow-[0_25px_70px_rgba(15,23,42,0.12)]">
+    <div
+      className="page-fade-in rounded-[32px] border border-slate-200 bg-white/90 shadow-[0_25px_70px_rgba(15,23,42,0.12)]"
+      style={{ animationDelay: `${delay}s` }}
+    >
       <div className="border-b border-slate-100 px-6 py-5">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Vehicle stats</p>
         <h3 className="mt-2 text-2xl font-semibold text-slate-900">{heading}</h3>
         <p className="mt-1 text-sm text-slate-500">{subheading}</p>
       </div>
       <div>
-        {COMPARISON_FIELDS.map(field => (
-          <div key={field.label} className="flex items-center justify-between border-t border-slate-100 px-6 py-4 first:border-t-0">
+        {COMPARISON_FIELDS.map(field => {
+          const isFitNotes = field.label === 'Fit Notes';
+          const rowClass = `flex justify-between border-t border-slate-100 px-6 py-4 first:border-t-0 ${isFitNotes ? 'items-start' : 'items-center'}`;
+          return (
+          <div key={field.label} className={rowClass}>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{field.label}</p>
-            <p className={`text-base font-semibold text-right ${valueClass}`}>
+            <p
+              className={`text-base font-semibold ${isFitNotes ? 'text-left pl-4' : 'text-right'} ${valueClass}`}
+            >
               {field.render(car)}
             </p>
           </div>
-        ))}
+        );
+      })}
       </div>
     </div>
   );
@@ -289,14 +296,18 @@ function VehicleStatsTable({ car }: { car: Car | null }) {
 
 function EmptyState() {
   return (
-    <div className="mt-10 rounded-[36px] border border-dashed border-slate-300 bg-white/80 p-10 text-center shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
+    <div
+      className="page-fade-in mt-10 rounded-[36px] border border-dashed border-slate-300 bg-white/80 p-10 text-center shadow-[0_20px_50px_rgba(15,23,42,0.08)]"
+      style={{ animationDelay: '0.12s' }}
+    >
       <p className="text-sm font-semibold uppercase tracking-[0.45em] text-slate-400">Need more data</p>
       <h2 className="mt-3 text-3xl font-semibold text-slate-900">Save at least two Toyotas to compare</h2>
       <p className="mt-2 text-slate-600">
-        Head back to your liked garage, pick your favorites, and then return to stack the specs side-by-side.
+        Use the compare form to dial in your preferences, then swipe through the deck to like more Toyotas before
+        returning here.
       </p>
-      <Link href="/liked" className="btn btn-primary mt-6 inline-flex items-center justify-center">
-        View liked cars
+      <Link href="/find" className="btn btn-primary mt-6 inline-flex items-center justify-center">
+        Open the swipe deck
       </Link>
     </div>
   );
@@ -328,15 +339,6 @@ function ensureValidSecondary(id: number | null, cars: Car[], primaryId: number 
   if (!pool.length) return null;
   if (id !== null && pool.some(car => car.Id === id)) return id;
   return pool[0].Id;
-}
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
-}
-
-function getCategory(car: Car) {
-  return car.VehicleCategory || car.Type || 'Other';
 }
 
 function getFuelType(car: Car | null) {

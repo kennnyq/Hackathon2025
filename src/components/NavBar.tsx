@@ -51,7 +51,7 @@ export default function NavBar() {
             className="h-10 w-10 object-contain"
             priority
           />
-          <span className="brand-wordmark text-lg font-semibold text-slate-900">ToyotaTinder</span>
+          <span className="brand-wordmark text-lg font-semibold text-slate-900">Toyota Tinder</span>
         </Link>
 
         <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/80 px-2 py-0.5 text-sm font-semibold shadow-[0_12px_35px_rgba(15,23,42,0.08)]">
@@ -60,7 +60,7 @@ export default function NavBar() {
           <Link className="nav-pill" href={protectedHref('/compare')}>Compare</Link>
           <a className="nav-pill" href="https://www.toyota.com/" target="_blank" rel="noreferrer">Toyota</a>
           <a
-            className="nav-pill px-2"
+            className="nav-pill nav-pill-compact"
             href="https://github.com/kennnyq/Hackathon2025"
             target="_blank"
             rel="noreferrer"
@@ -77,12 +77,12 @@ export default function NavBar() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="nav-pill border-red-200/80 text-red-600 hover:border-red-300"
+              className="nav-pill nav-pill-auth border-red-200/80 text-red-600 hover:border-red-300"
             >
               Sign out
             </button>
           ) : (
-            <Link className="nav-pill" href="/login">Log in</Link>
+            <Link className="nav-pill nav-pill-auth" href="/login">Log in</Link>
           )}
         </div>
       </nav>

@@ -46,9 +46,6 @@ export default function Page() {
             <h2 className="animate-fade-up mt-3 text-3xl font-bold text-slate-900" style={{ animationDelay: '0.15s' }}>
               The ToyotaTinder flow
             </h2>
-            <p className="animate-fade-up text-xs uppercase tracking-[0.4em] text-red-400" style={{ animationDelay: '0.18s' }}>
-              Four punchy steps
-            </p>
 
             <ol className="relative z-10 mt-6 space-y-4">
               {FLOW_STEPS.map((step, index) => (

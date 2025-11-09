@@ -1,10 +1,9 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import CarDetailModal from '@/components/CarDetailModal';
 import { Car } from '@/lib/types';
-import CarCard from '@/components/CarCard';
 
 type Props = {
   car: Car;
@@ -16,15 +15,45 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   maximumFractionDigits: 0,
 });
+const MODAL_ANIMATION_MS = 240;
 
 export default function SwipeCard({ car, className = '' }: Props) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gradient = gradientForColor(car);
   const imageSrc = car.ImageUrl || '/car-placeholder.svg';
   const mileage = typeof car.Mileage === 'number' ? `${car.Mileage.toLocaleString()} mi` : null;
   const type = car.Type || car.VehicleCategory || '—';
   const description = (car.FitDescription || '').trim();
   const price = typeof car.Price === 'number' ? currencyFormatter.format(car.Price) : '—';
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  function openDetails() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setIsClosing(false);
+    setModalOpen(true);
+  }
+
+  function requestClose() {
+    if (!isModalOpen || isClosing) return;
+    setIsClosing(true);
+    closeTimerRef.current = setTimeout(() => {
+      setModalOpen(false);
+      setIsClosing(false);
+      closeTimerRef.current = null;
+    }, MODAL_ANIMATION_MS);
+  }
 
   const wrapperClass = useMemo(
     () =>
@@ -77,53 +106,17 @@ export default function SwipeCard({ car, className = '' }: Props) {
           <button
             type="button"
             className="btn btn-outline w-full"
-            onClick={() => setShowDetails(true)}
+            onClick={openDetails}
           >
             View details
           </button>
         </div>
       </div>
 
-      {showDetails && (
-        <SwipeDetailsModal onClose={() => setShowDetails(false)}>
-          <CarCard car={car} />
-        </SwipeDetailsModal>
+      {isModalOpen && (
+        <CarDetailModal car={car} closing={isClosing} onRequestClose={requestClose} />
       )}
     </div>
-  );
-}
-
-function SwipeDetailsModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <div className="liked-modal-overlay" onClick={onClose} />
-      <div className="liked-modal-panel" role="dialog" aria-modal="true">
-        <div className="absolute right-4 top-4">
-          <button
-            aria-label="Close"
-            className="btn btn-outline px-3 py-1.5"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
   );
 }
 

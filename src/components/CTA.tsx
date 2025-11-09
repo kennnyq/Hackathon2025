@@ -67,7 +67,7 @@ export default function CTA({ isAuthenticated = false }: { isAuthenticated?: boo
           className="text-sm font-semibold uppercase tracking-[0.3em] text-red-500/80"
           variants={heroItem}
         >
-          Welcome to ToyotaTinder
+          Welcome to Toyota Tinder
         </motion.p>
 
         <motion.h1
