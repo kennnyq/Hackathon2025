@@ -1,6 +1,19 @@
+import type { Metadata } from 'next';
 import './globals.css';
 import PageTransition from '@/components/PageTransition';
-export const metadata = { title: "ToyotaTinder", description: "Find your optimal Toyota" };
+
+export const metadata: Metadata = {
+  title: 'ToyotaTinder',
+  description: 'Find your optimal Toyota',
+  icons: {
+    icon: [
+      { url: '/toyotatinder.png', type: 'image/png', sizes: '32x32' },
+      { url: '/toyotatinder.png', type: 'image/png', sizes: '192x192' },
+    ],
+    shortcut: '/toyotatinder.png',
+    apple: '/toyotatinder.png',
+  },
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
